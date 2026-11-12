@@ -776,13 +776,42 @@ puts the glyphs within 0.4 pt.
 
 ### Next
 
-Milestone 5: the fidelity tuner. Starting points:
+Milestone 5: the fidelity tuner. **Starting points for Prompt 5** (checked against the
+code at `4290aa2`):
 
-- `TextBlock.notes` carries `wrap_conflict`, `vdrift:<pt>` and `tight:<i>`, and
-  paragraphs carry their split reasons. These, together with the report's
-  low-confidence list, are the first candidates to tune.
-- The round-trip check (export the PPTX to PDF with PowerPoint, parse it, compare
-  glyph origins) is exact and cheap (~1 s per deck). It is a better signal for line
-  breaks and positions than COM word boxes; consider it for the tuner's inner loop.
-- `ppt_spacing()` already gives the spacing PowerPoint will really use, so the tuner
-  can solve for spacing and width with that model instead of searching blindly.
+- **Compare against M4, not the M2 baseline**, for "no score regresses vs M4":
+  `work/scores/m4/` (per file + `summary.json`) and `work/scores/structure.json`.
+  `work/scores/baseline.json` stays the M2 baseline. If they are missing, rerun
+  `convert --corpus --no-cache` then `score --corpus --against out --label m4`.
+- **Where to hook in.** `pipeline.convert()` = `analyzed()` (cached IR) →
+  `write_pptx(doc, out, work_dir, pdf, TextOptions.for_mode(...))`. A tuner fits after
+  the write: adjust the IR (`TextBlock.bbox`, `Paragraph.line_spacing`,
+  `TextRun.char_spacing` / `size`), mark changes `source="tuner"` + a note, rewrite,
+  re-render only the changed slides. `Config.tune_enabled` / `tune_rounds` and
+  `ModeLimits` (`forced_line_breaks`, `max_font_size_change`, `max_char_spacing_pt`)
+  already exist in `config.py`.
+- **Comparing lines per block.** PowerPoint side: `ppt_com.shared().text_layout(pres,
+  slide)` → `TextShape` per box (`name` = "TextBox N", in spTree order) with
+  `LineBox`es and `WordBox`es. PDF side: the block's paragraphs carry `glyph_ids` per
+  run, so each block's PDF lines can be rebuilt from `page.glyphs` (group by
+  baseline). The writer creates text boxes in `_build_page` order (z, then
+  `reading_order`); map shapes to blocks by writing the block id into the shape name
+  (not done yet: cheap to add in `writer._add_text`).
+- **Rounding.** PowerPoint rounds `spcPts` to whole points and `spcPct` to whole
+  percent (M4). Any "line spacing exact" fix must go through
+  `build/units.ppt_spacing()`, or it will be silently re-rounded. Whether `spc`
+  (character spacing) is rounded too is **not measured yet**; measure it first.
+- **First candidates.** `TextBlock.notes` carries `wrap_conflict`, `vdrift:<pt>` and
+  `tight:<i>`; paragraphs carry their split reasons; the report lists blocks with
+  confidence < 0.6. Frames have 2–6 pt of wrap slack (`text_group._horizontal`).
+- **An exact signal.** The round trip (PowerPoint `export_pdf` of the PPTX, then
+  `ingest.parse.parse_pages` and compare glyph origins in order) is exact and costs
+  ~1 s per deck. It is a better line-break / position check than COM word boxes.
+- **Known scorer bias.** `pos_err` uses "line bottom − space after" as the anchor;
+  with percentage line spacing that sits ~1 pt lower than the baseline (reports,
+  d23). Fix it in the scorer (anchor = top + 0.75 × line height when the ratio is ≥ 1)
+  before using pos_err as the tuner's objective, and rescore truth/baseline/m4 when
+  you do.
+- **Test fixtures.** `tests/test_text_group.py::PageBuilder` builds hand-made pages
+  (monospace 0.5 em glyphs, wrapped/justified text). Use it for the "block 10% too
+  narrow" test: shrink the analyzed `TextBlock.bbox` before writing.
