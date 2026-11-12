@@ -47,3 +47,23 @@ def angle_to_ooxml(deg: float) -> int:
 def pct_to_ooxml(fraction: float) -> int:
     """DrawingML percentages are in 1/1000 percent (100% = 100000)."""
     return round(fraction * 100_000)
+
+
+def _half_up(v: float) -> int:
+    return int(v + 0.5) if v >= 0 else -int(-v + 0.5)
+
+
+def ppt_spacing(points: float, single: float) -> tuple[str, int, float]:
+    """Best PowerPoint encoding of a line / paragraph spacing given in points.
+
+    Measured in M4: PowerPoint rounds ``spcPts`` to whole points and ``spcPct``
+    (a percentage of the single line height ``single``) to whole percent, both half
+    up. Returns ``(tag, ooxml value, effective points)`` for whichever encoding lands
+    closer to ``points``.
+    """
+    pts = float(_half_up(points))
+    pct = _half_up(points / single * 100.0) if single > 0 else 0
+    pct_pts = pct / 100.0 * single
+    if single > 0 and abs(pct_pts - points) < abs(pts - points):
+        return "spcPct", pct * 1000, pct_pts
+    return "spcPts", int(pts) * 100, pts

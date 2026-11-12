@@ -91,8 +91,13 @@ class FontRef:
     embedded: bool = False
     subset: bool = False
     matched_family: str | None = None  # installed family chosen by fonts/match.py
-    match_score: float | None = None
+    match_score: float | None = None  # 0..1 confidence of the match
+    match_source: str | None = None  # name | alias | widths | fallback
     embeddable: bool | None = None  # OS/2 fsType allows embedding
+    fs_type: int | None = None  # OS/2 fsType of the embedded program (None = unknown)
+    program: str | None = None  # embedded font program, path relative to the work dir
+    # advance widths (em) of the characters the page actually uses, from the PDF font
+    widths: dict[str, float] = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- elements

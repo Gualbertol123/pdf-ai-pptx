@@ -25,12 +25,14 @@ import numpy as np
 from PIL import Image
 
 from .. import log
+from ..analyze.text_group import LOW_CONFIDENCE
 from ..config import Config
 from ..ir import Document, to_dict
 from ..verify import diff, ppt_com, score
 from ..verify.pdf_text import render_pages
 
 LOG = log.get(__name__)
+LOW_CONF_SHOWN = LOW_CONFIDENCE
 
 KIND_COLORS = {
     "text_block": "#1f6fd1", "shape": "#e07b00", "image": "#1a9a4a", "table": "#8a3fd1",
@@ -124,6 +126,31 @@ def _page_overlays(doc: Document | None, index: int) -> tuple[list[dict[str, Any
     return rects, data
 
 
+def low_confidence_blocks(doc: Document | None, index: int,
+                          threshold: float | None = None) -> list[dict[str, Any]]:
+    """Text blocks of a page whose grouping, role or a paragraph decision is uncertain."""
+    from ..ir import TextBlock
+
+    thr = LOW_CONFIDENCE if threshold is None else threshold
+    if doc is None or index >= len(doc.pages):
+        return []
+    out = []
+    for b in doc.pages[index].elements:
+        if not isinstance(b, TextBlock):
+            continue
+        weak = [p for p in b.paragraphs if p.confidence < thr]
+        if b.confidence >= thr and b.role_confidence >= thr and not weak:
+            continue
+        text = " / ".join("".join(r.text for r in p.runs) for p in b.paragraphs)
+        why = [n for n in b.notes] + [f"{p.id}: {', '.join(p.notes) or 'low'} "
+                                      f"({p.confidence:.2f})" for p in weak]
+        if b.role_confidence < thr:
+            why.append(f"role {b.role} ({b.role_confidence:.2f})")
+        out.append({"id": b.id, "confidence": b.confidence, "role": b.role,
+                    "role_confidence": b.role_confidence, "text": text[:160], "why": why})
+    return sorted(out, key=lambda d: (d["confidence"], d["id"]))
+
+
 def _ppt_line_rects(layout: list[ppt_com.TextShape], page_wh: tuple[float, float],
                     slide_wh: tuple[float, float]) -> list[dict[str, Any]]:
     s, dx, dy = diff.page_rect_on_slide(*page_wh, *slide_wh)
@@ -169,6 +196,7 @@ def collect(pdf: Path, cfg: Config, *, pptx: Path | None = None,
         entry: dict[str, Any] = {"index": i, "size": wh, "row": row, "rects": rects,
                                  "data": data, "ppt_lines": [], "mismatches": []}
         entry["triage"] = to_dict(page_ir.triage) if page_ir else None
+        entry["low_conf"] = low_confidence_blocks(doc, i)
         if i < len(pdf_imgs):
             entry["pdf_img"] = _data_uri(pdf_imgs[i])
         c = got.get(i)
@@ -451,6 +479,15 @@ def render_html(rep: dict[str, Any]) -> str:
                           p.get("heat_img"), _svg(p, ppt=False),
                           f"no heatmap: {why}"))
         out.append("</div>")
+        if p.get("low_conf"):
+            items = "".join(
+                f"<li><b>{_esc(b['id'])}</b> confidence {b['confidence']:.2f}, role "
+                f"{_esc(b['role'])} ({b['role_confidence']:.2f}): “{_esc(b['text'])}” "
+                f"<span class=muted>{_esc('; '.join(b['why']))}</span></li>"
+                for b in p["low_conf"])
+            out.append(f'<details open><summary class="muted">{len(p["low_conf"])} '
+                       f'low-confidence text blocks (&lt; {LOW_CONF_SHOWN})</summary>'
+                       f'<ul class="mono">{items}</ul></details>')
         if p["mismatches"]:
             items = "".join(
                 f"<li>#{k + 1} ssim {m['ssim']:.3f}, bbox {m['bbox']}: "

@@ -18,7 +18,7 @@ NOT_YET = {
 
 def _config(args: argparse.Namespace) -> Config:
     overrides: dict[str, Any] = {}
-    for key in ("mode", "tier", "workers", "work_dir", "render_dpi"):
+    for key in ("mode", "tier", "workers", "work_dir", "render_dpi", "text_layout"):
         v = getattr(args, key, None)
         if v is not None:
             overrides[key] = v
@@ -83,6 +83,16 @@ def cmd_score(args: argparse.Namespace) -> int:
     (out_dir / f"{pdf.stem}.md").write_text(md, encoding="utf-8")
     print(md)
     print(f"written: {out}")
+    return 0
+
+
+def cmd_structure(args: argparse.Namespace) -> int:
+    from .verify import structure
+
+    cfg = _config(args)
+    res = structure.structure_corpus(cfg, only=args.only or None, use_cache=not args.no_cache)
+    print(structure.summary_text(res))
+    print(f"written: {cfg.scores_dir / 'structure.json'}")
     return 0
 
 
@@ -170,6 +180,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="ignore cached IR in work/<sha256>/")
     c.add_argument("--no-check", dest="no_check", action="store_true",
                    help="corpus mode: skip opening each output in PowerPoint")
+    c.add_argument("--text-layout", dest="text_layout", choices=("blocks", "lines"),
+                   help="blocks (default): one box per text block; lines: the M2 "
+                        "baseline, one box per line (for comparison)")
     c.set_defaults(func=cmd_convert)
 
     s = sub.add_parser("score", parents=[common], help="score a PPTX against its PDF")
@@ -187,6 +200,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_score)
 
     k = sub.add_parser("corpus", parents=[common], help="build or list the synthetic corpus")
+    t = sub.add_parser("structure", parents=[common],
+                       help="compare paragraphs, levels and fonts with the synthetic truth")
+    t.add_argument("--only", nargs="*", help="corpus names to include")
+    t.add_argument("--no-cache", dest="no_cache", action="store_true")
+    t.set_defaults(func=cmd_structure)
+
     k.add_argument("action", choices=("build", "list"))
     k.add_argument("--only", nargs="*")
     k.set_defaults(func=cmd_corpus)

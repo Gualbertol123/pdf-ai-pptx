@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from . import log
-from .build.writer import write_pptx
+from .build.writer import TextOptions, write_pptx
 from .config import Config
 from .ingest import parse, triage
 from .ir import Document
@@ -29,7 +29,7 @@ LOG = log.get(__name__)
 STAGE_VERSIONS = {
     "ingest": parse.PARSER_VERSION,
     "triage": "2.0",
-    "analyze": "identity-2.0",
+    "analyze": "text-4.5",
 }
 STAGES = tuple(STAGE_VERSIONS)
 
@@ -90,7 +90,10 @@ def run_stage(work_dir: Path, stage: str, fn: Callable[[], Document], use_cache:
 
 
 def analyze(doc: Document) -> Document:
-    """Identity for M2. M4+ adds text grouping, lists, shapes, tables, ..."""
+    """M4: fonts, text blocks, lists, roles, reading order. M6+ adds shapes, tables, ..."""
+    from .analyze.text import analyze_text
+
+    doc = analyze_text(doc)
     doc.stage = "analyze"
     return doc
 
@@ -113,16 +116,15 @@ class ConvertResult:
         return asdict(self)
 
 
-def convert(pdf: Path, out: Path, cfg: Config, *, workers: int | None = None,
-            use_cache: bool = True) -> ConvertResult:
-    """Convert one PDF. Raises only if the whole document cannot be opened/written."""
-    t0 = time.perf_counter()
+def analyzed(pdf: Path, cfg: Config, *, workers: int | None = None,
+             use_cache: bool = True) -> tuple[Document, Path, list[str]]:
+    """ingest -> triage -> analyze (each cached): (IR, work dir, cached stage names)."""
     pdf = Path(pdf)
     sha = sha256_file(pdf)
     work_dir = cfg.work_dir / sha
     work_dir.mkdir(parents=True, exist_ok=True)
-    res = ConvertResult(pdf=str(pdf), output=str(out))
     n_workers = cfg.workers if workers is None else workers
+    cached: list[str] = []
 
     def _ingest() -> Document:
         doc = parse.parse_document(pdf, work_dir, sha256=sha, workers=n_workers)
@@ -138,15 +140,25 @@ def convert(pdf: Path, out: Path, cfg: Config, *, workers: int | None = None,
 
     doc, hit = run_stage(work_dir, "ingest", _ingest, use_cache)
     if hit:
-        res.cached_stages.append("ingest")
+        cached.append("ingest")
     doc, hit = run_stage(work_dir, "triage", lambda: triage.triage_document(doc), use_cache)
     if hit:
-        res.cached_stages.append("triage")
+        cached.append("triage")
     doc, hit = run_stage(work_dir, "analyze", lambda: analyze(doc), use_cache)
     if hit:
-        res.cached_stages.append("analyze")
+        cached.append("analyze")
+    return doc, work_dir, cached
 
-    rep = write_pptx(doc, out, work_dir, pdf)
+
+def convert(pdf: Path, out: Path, cfg: Config, *, workers: int | None = None,
+            use_cache: bool = True) -> ConvertResult:
+    """Convert one PDF. Raises only if the whole document cannot be opened/written."""
+    t0 = time.perf_counter()
+    pdf = Path(pdf)
+    res = ConvertResult(pdf=str(pdf), output=str(out))
+    doc, work_dir, res.cached_stages = analyzed(pdf, cfg, workers=workers, use_cache=use_cache)
+
+    rep = write_pptx(doc, out, work_dir, pdf, TextOptions.for_mode(cfg.mode, cfg.text_layout))
     doc.stage = "build"
     _save_ir(work_dir, "build", doc)
 
@@ -182,6 +194,12 @@ def convert_corpus(cfg: Config, *, only: list[str] | None = None, use_cache: boo
     from .corpus.build import load_manifest
 
     entries = [e for e in load_manifest(cfg.corpus_dir) if not only or e["name"] in only]
+    try:  # index installed fonts once here, not in every worker
+        from .fonts.index import face_index
+
+        face_index()
+    except Exception as exc:
+        LOG.warning("font index unavailable: %s", exc)
     out_dir = cfg.out_dir / "corpus"
     out_dir.mkdir(parents=True, exist_ok=True)
     t0 = time.perf_counter()

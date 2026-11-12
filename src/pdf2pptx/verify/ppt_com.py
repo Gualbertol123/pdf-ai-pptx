@@ -467,8 +467,12 @@ def _collect_text_frame(tf2: Any, name: str, sid: int, out: list[TextShape],
         y1 = y0 + height
         if text.endswith(PARAGRAPH_ENDS) or li == n_lines:
             pf = raw(line, "TextRange2", "ParagraphFormat")
-            if not int(raw(pf, "ParagraphFormat2", "LineRuleAfter")):  # SpaceAfter in pt
-                y1 -= max(0.0, float(raw(pf, "ParagraphFormat2", "SpaceAfter")))
+            after = max(0.0, float(raw(pf, "ParagraphFormat2", "SpaceAfter")))
+            if after and int(raw(pf, "ParagraphFormat2", "LineRuleAfter")):
+                # SpaceAfter in lines: one line = 1.2 x the font size (measured, M4)
+                size = float(raw(raw(line, "TextRange2", "Font"), "Font2", "Size"))
+                after = after * 1.2 * size if size > 0 else 0.0
+            y1 -= after
         lb = LineBox(text=text, x0=left + ox, y0=y0, x1=left + width + ox, y1=y1, shape=name,
                      bound=(left + ox, top + oy, width, height))
         words = raw(line, "TextRange2", "Words")

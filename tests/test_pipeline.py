@@ -48,17 +48,29 @@ def test_convert_end_to_end(two_pages: Path, tmp_path: Path) -> None:
     assert len(prs.slides) == 2
     assert abs(prs.slide_width - 720 * 12700) <= 1 and abs(prs.slide_height - 405 * 12700) <= 1
     s = prs.slides[0]
-    texts = [sh.text_frame.text for sh in s.shapes if sh.has_text_frame and sh.text_frame.text]
-    # one box per line, and the far-apart "Left" / "Right column" stay separate boxes
-    assert texts == ["Slide 1 title", "Left", "Right column"]
+    texts = sorted(sh.text_frame.text for sh in s.shapes
+                   if sh.has_text_frame and sh.text_frame.text)
+    # the far-apart "Left" / "Right column" stay separate blocks
+    assert texts == ["Left", "Right column", "Slide 1 title"]
     box = next(sh for sh in s.shapes if sh.has_text_frame and sh.text_frame.text == "Left")
     tf = box.text_frame
-    assert tf.word_wrap is False and tf.margin_left == 0 and tf.margin_top == 0
+    assert tf.word_wrap is True and tf.margin_left == 0 and tf.margin_top == 0
     assert any(sh.shape_type == MSO_SHAPE_TYPE.FREEFORM for sh in s.shapes)
     work = cfg.work_dir / pipeline.sha256_file(two_pages)
     for stage in ("ingest", "triage", "analyze", "build"):
         assert (work / f"ir_{stage}.json").is_file()
     assert res.crosscheck is not None and res.crosscheck["text_ratio"] == 1.0
+
+
+def test_lines_layout_keeps_the_baseline_path(two_pages: Path, tmp_path: Path) -> None:
+    cfg = Config(work_dir=tmp_path / "work", out_dir=tmp_path / "out", workers=1,
+                 text_layout="lines")
+    out = tmp_path / "lines.pptx"
+    pipeline.convert(two_pages, out, cfg)
+    s = Presentation(str(out)).slides[0]
+    boxes = [sh for sh in s.shapes if sh.has_text_frame and sh.text_frame.text]
+    assert [b.text_frame.text for b in boxes] == ["Slide 1 title", "Left", "Right column"]
+    assert all(b.text_frame.word_wrap is False for b in boxes)  # one non-wrapping box per line
 
 
 def test_cache_and_determinism(two_pages: Path, tmp_path: Path) -> None:

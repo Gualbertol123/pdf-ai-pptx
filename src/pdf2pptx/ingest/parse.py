@@ -23,6 +23,7 @@ import ctypes
 import hashlib
 import io
 import math
+import os
 import re
 from collections import Counter
 from collections.abc import Sequence
@@ -55,7 +56,7 @@ from .geom import Matrix
 
 LOG = log.get(__name__)
 
-PARSER_VERSION = "2.0"
+PARSER_VERSION = "2.1"  # 2.1: font widths + embedded programs
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
 _STYLES = (r"Bold|Italic|Oblique|Regular|Semibold|SemiBold|Light|Medium|Black|Heavy|"
@@ -506,7 +507,12 @@ def _glyphs(ctx: _PageCtx, fonts: dict[str, FontRef]) -> list[Glyph]:
             font_id = base or "unknown"
             if font_id not in fonts:
                 fonts[font_id] = _font_ref(font_id, flags, int(R.FPDFText_GetFontWeight(tp, i)),
-                                           tobj)
+                                           tobj, ctx.work_dir)
+            fr = fonts[font_id]
+            if ch not in fr.widths and tobj:
+                w = _glyph_width(tobj, u)
+                if w is not None:
+                    fr.widths[ch] = w
             cr, cg, cb, ca = (ctypes.c_uint() for _ in range(4))
             color = Color(rgb="000000")
             if R.FPDFText_GetFillColor(tp, i, cr, cg, cb, ca):
@@ -526,16 +532,62 @@ def _glyphs(ctx: _PageCtx, fonts: dict[str, FontRef]) -> list[Glyph]:
     return out
 
 
-def _font_ref(base: str, flags: int, weight: int, tobj: Any) -> FontRef:
+def _glyph_width(tobj: Any, codepoint: int) -> float | None:
+    """Advance width (em) of a character in the PDF font of ``tobj`` (its /Widths)."""
+    font = R.FPDFTextObj_GetFont(tobj)
+    if not font:
+        return None
+    w = ctypes.c_float()
+    if not R.FPDFFont_GetGlyphWidth(font, codepoint, ctypes.c_float(1.0), ctypes.byref(w)):
+        return None
+    v = float(w.value)
+    return round(v, 4) if 0.0 <= v < 10.0 else None
+
+
+def _font_program(font: Any, work_dir: Path) -> str | None:
+    """Write the embedded font program to ``work_dir/fonts``; path relative to work_dir."""
+    n = ctypes.c_size_t()
+    if not R.FPDFFont_GetFontData(font, None, 0, ctypes.byref(n)) or n.value <= 0:
+        return None
+    buf = (ctypes.c_uint8 * n.value)()
+    if not R.FPDFFont_GetFontData(font, buf, n.value, ctypes.byref(n)):
+        return None
+    data = bytes(buf)[: n.value]
+    from ..fonts.embed import program_extension
+
+    name = f"fonts/{hashlib.sha256(data).hexdigest()[:16]}{program_extension(data)}"
+    path = work_dir / name
+    if not path.is_file():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+        tmp.write_bytes(data)
+        tmp.replace(path)
+    return name
+
+
+def _font_ref(base: str, flags: int, weight: int, tobj: Any, work_dir: Path) -> FontRef:
     low = base.lower()
     embedded = False
+    program = None
+    fs_type = None
     if tobj:
         font = R.FPDFTextObj_GetFont(tobj)
         if font:
             embedded = bool(R.FPDFFont_GetIsEmbedded(font))
+            if embedded:
+                try:
+                    program = _font_program(font, work_dir)
+                    if program:
+                        from ..fonts.embed import read_fs_type
+
+                        fs_type = read_fs_type(work_dir / program)
+                except Exception as exc:  # optional: never fail ingest over a font
+                    LOG.debug("font %s: program not extracted: %s", base, exc)
     if weight <= 0:
         weight = 700 if "bold" in low else 400
     return FontRef(
+        program=program,
+        fs_type=fs_type,
         id=base,
         pdf_name=base,
         family=clean_family(base),
@@ -702,10 +754,14 @@ def parse_document(pdf: Path, work_dir: Path, *, sha256: str = "", workers: int 
             for ps, fs in pool.map(parse_pages, [pdf] * k, _chunks(n, k), [work_dir] * k):
                 pages.extend(ps)
                 for key, f in fs.items():
-                    fonts.setdefault(key, f)
+                    have = fonts.setdefault(key, f)
+                    for ch, w in f.widths.items():
+                        have.widths.setdefault(ch, w)
     pages.sort(key=lambda p: p.index)
     sizes = Counter(f"{p.width:g}x{p.height:g}" for p in pages)
     meta["page_sizes"] = ", ".join(f"{s} ({c})" for s, c in sorted(sizes.items()))
+    for f in fonts.values():
+        f.widths = dict(sorted(f.widths.items()))
     return Document(source_path=str(pdf), sha256=sha256, metadata=meta, pages=pages,
                     fonts=dict(sorted(fonts.items())), stage="ingest")
 

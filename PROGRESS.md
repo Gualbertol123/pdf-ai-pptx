@@ -5,7 +5,7 @@
 | 1 | Foundation, IR, corpus, scoring harness | **done** | 2026-11-11 |
 | 2 | Ingest and baseline converter | **done** | 2026-11-12 |
 | 3 | PowerPoint check engine and debug report | **done** | 2026-11-12 |
-| 4 | Text understanding and fonts | not started | |
+| 4 | Text understanding and fonts | **done** | 2026-11-12 |
 | 5 | Fidelity tuner | not started | |
 | 6 | Graphics and tables | not started | |
 | 7 | Document structure | not started | |
@@ -553,3 +553,236 @@ pages, measured against this baseline.
      `confidence`).
 - **Speed headroom.** Fewer boxes means fewer COM shape visits, so scoring should get
   faster. A wrapped multi-line box costs one `Lines.Item` per line plus the words.
+
+---
+
+## Milestone 4: text understanding and fonts (2026-11-12)
+
+### What exists
+
+- **`analyze/text_group.py`**: glyphs → words → lines → paragraphs → TextBlocks. Every
+  threshold is in em of the local font size or relative to page/block statistics.
+  - **Local frames.** Glyphs are grouped by rotation and projected on (along, across),
+    so rotated text is grouped exactly like horizontal text. The frame goes back to
+    the page as an unrotated box + clockwise rotation.
+  - **Lines.** Content order first, with a sub/superscript tolerance (≤ 0.85× size
+    within 0.6 em of the baseline). A merge pass joins same-baseline fragments a PDF
+    drew out of order. Invisible text (render mode 3/7 or a fully transparent fill)
+    is dropped.
+  - **Splits.** Words split at space glyphs or gaps > 0.15 em. A word gap wider than
+    `max(0.8 em, 3 × page median gap)` splits the line (columns, cells), except in
+    lines whose gaps are uniformly wide (justified).
+  - **Blocks.** A line joins the block whose last line is just above it: horizontal
+    overlap, size ratio ≤ 1.6, baseline distance ≤ 2 block pitches (≤ 1.5 × size when
+    sizes differ by > 1.3×). A line touching two blocks at the same height starts its
+    own (it spans columns). Short label-less items more than 1.3 lines apart (axis
+    ticks, table cells) stay separate. An italic/upright change together with a size
+    change starts a new block (captions).
+  - **Paragraphs.** A new paragraph starts at a label, at extra space (> 1.3 × block
+    pitch), at a size change, at an indent change, after a short line (the next line's
+    first word would have fitted), at stacked single words, or, as a low-confidence
+    (0.65) tie-breaker, when the widest line ends a sentence before a short line and
+    nothing else in the block shows the wrap width. Centred/right blocks use
+    width-based tests. End-of-line hyphenation joins without a space and is recorded
+    (`hyphen:` note).
+  - **Properties.** Alignment from line edges (justify needs equal edges and a stretch
+    > max(0.25 em, 1.5 pt); single-line paragraphs vote on the edge they share, or
+    are centred in an enclosing filled shape / on the page). Indents from label and
+    text positions (marL / indent). Line spacing: single when within 2% of 1.2 × size,
+    else the exact pitch in points. Space after from the remaining gap.
+  - **Frame.** The width comes from the wrap constraints: at least every line's natural
+    width, and less than (line + space + next word) for every wrapped line. Justified
+    blocks use the column width (or just enough for a line the PDF squeezed). The
+    vertical position walks down the block predicting PowerPoint's baselines (with its
+    rounding, see below) and puts the rounding error into the next paragraph's space.
+  - **Runs.** One per change of family, bold, italic, size, colour, script shift or
+    link. Sub/superscripts get `baseline_shift` and 1.5× their glyph size (PowerPoint
+    draws them at ⅔). In a single-line paragraph an oversized gap (legend swatch, tab)
+    keeps its width as character spacing on the space.
+  - **z.** The first glyph's z (keeps the PDF's drawing and text order), or the last
+    glyph's when a filled graphic drawn between them overlaps the block.
+- **`analyze/lists.py`**: bullet glyphs (strong `•▪►✓…`; weak `– — - · *` only as a
+  separate word followed by a gap), number labels (`1.` `2)` `(3)` `a.` `iv.` `B)`;
+  `i.` resolved as roman or alpha from its neighbours), picture bullets (a small image
+  left of the line, centred on the x-height), indent levels (clustered label
+  positions) and numbering runs (PowerPoint continues a run while `type` and `startAt`
+  are equal; a broken sequence gets its own `startAt`). Bullet glyphs leave the text
+  and become real `buChar` / `buAutoNum` / `buBlip` bullets with font, colour and size.
+- **`analyze/reading_order.py`**: recursive XY-cut. A vertical gap with substantial
+  content on both sides is a column split and wins over a horizontal cut. It sets
+  `TextBlock.reading_order`, which the writer uses to break z ties.
+- **`analyze/roles.py`**: title, subtitle, body, footer, header, page_number and caption
+  from position, size and repetition (text with digits masked + position, on at least
+  half of the pages). A page number equal to the slide number becomes a real
+  slide-number field. Every role has a `role_confidence`.
+- **`analyze/text.py`**: font matching → embedding candidates → grouping per page (a
+  page that fails keeps the one-box-per-line fallback, logged) → roles → reading
+  order. `STAGE_VERSIONS["analyze"] = "text-4.5"`.
+- **`fonts/index.py`**: an index of every installed face in `C:\Windows\Fonts` and
+  `%LOCALAPPDATA%\Microsoft\Windows\Fonts` (354 faces here, ~2 s cold): family (nameID
+  1, the name PowerPoint shows), typographic family, style, weight, width, italic,
+  monospace, serif (PANOSE), fsType, win metrics and a width profile (ASCII + common
+  Latin-1). It is cached in `%LOCALAPPDATA%\pdf2pptx\cache\font_index.json` and
+  re-read per changed file. `convert --corpus` builds it once before starting workers.
+- **`fonts/match.py`**:
+  - Name first: the subset prefix and PS suffixes are stripped, camel case is split
+    and weight words are kept (`Calibri-Light` → Calibri Light, `SegoeUI-Semibold` →
+    Segoe UI Semibold). Base-14 names go through aliases (Helvetica → Arial, …). The
+    widths are still checked.
+  - Otherwise the width profile of the characters actually used (`sum|Δw| / sum w`
+    plus style penalties); otherwise the serif / fixed-pitch flags.
+  - Bold/italic come from the name, the flags, ForceBold and the stem weight; a family
+    that is itself heavy is not bolded again.
+  - It records `matched_family`, `match_score` and `match_source` on each FontRef.
+- **`fonts/embed.py`** + ingest: embedded font programs are extracted to
+  `work/<sha>/fonts/` and their OS/2 fsType is read. Fonts that are embedded, not
+  installed and licensed for embedding are listed in
+  `metadata["pdf2pptx:embed_candidates"]`. **Writing them into the PPTX is a gap**
+  (see Known gaps).
+- **Ingest** (`PARSER_VERSION = "2.1"`): per font, the PDF advance width (em) of every
+  character used (`FPDFFont_GetGlyphWidth` takes a Unicode code point), plus the
+  program path and fsType. IR: `FontRef` gains `widths`, `program`, `fs_type` and
+  `match_source` (additive; the IR version is unchanged).
+- **Writer**:
+  - One wrapping, zero-inset box per TextBlock with `algn`, `marL`/`indent`, `lvl`,
+    line spacing, space after, bullets (char / autonum / picture), sub/superscript
+    `baseline` and slide-number fields.
+  - Autofit is off except in `editable`/`deck` (normAutofit, and end-of-line hyphens
+    removed). Images used as picture bullets are not placed.
+  - **`--text-layout lines`** (config `text_layout`) keeps the M2 path. Rescoring it
+    reproduces the baseline with max |Δ| = 0.0 on every metric of every slide.
+- **`verify/structure.py`** + **`pdf2pptx structure`**: analyzed paragraphs vs the
+  synthetic truth (count, levels, bullet present, font family per run); table and
+  chart frames are left out. It writes `work/scores/structure.json`.
+- **Debug report**: each page lists its low-confidence text blocks (< 0.6) with the
+  reasons (paragraph split rule, role, notes such as `wrap_conflict`, `vdrift`).
+- **Scorer fix** (`ppt_com._collect_text_frame`): a `SpaceAfter` in *lines*
+  (`LineRuleAfter`) is now converted (lines × 1.2 × font size) before it is taken off
+  the line bottom. Before, it was ignored, which shifted every word of a paragraph
+  with percentage spacing (pos_err 8 pt on d01). Point spacing is unchanged, so the
+  baseline and truth scores do not move.
+
+### Measured facts that later milestones rely on
+
+- **PowerPoint rounds `spcPts` to whole points** (line spacing and space before/after:
+  13.5 → 14, 10.2 → 10, 32.4 → 32, 6.77 → 7) **and `spcPct` to whole percent**
+  (112.5% → 113%), both half up. This was measured on 96 boxes (Arial/Calibri, 10/16/24
+  pt, ratios 0.85–1.6) exported to PDF and parsed. The writer picks the encoding that
+  lands closer (`build/units.ppt_spacing`). r01's drift went from +0.54 pt per line to
+  ≤ 0.37 pt over the whole column.
+- **First baseline with non-single spacing** (ratio r of single): for r ≥ 1 it sits at
+  0.75 × the line height, font-independent (±0.005); for r < 1 it is the single offset
+  minus (1 − r) × 1.2 × size. Single spacing keeps the M2 rule. Space after in percent
+  = r × 1.2 × size.
+- **Super/subscript** runs are drawn at ⅔ of the run size (0.6655–0.6666) and raised by
+  `baseline`% of the *nominal* size.
+- **A bullet's font does not change the line metrics**: the line is laid out with the
+  text font. An Arial bullet on a Calibri line moved our first baseline by 1.1 pt
+  until the label glyph was excluded.
+- **PowerPoint's PDF export adds invisible 1.2 pt copies of link text** (fill alpha 0)
+  under the link. pdfplumber counts them, so `text_sim`/`word_recall` on d19 now equal
+  the truth deck's (0.92) rather than 1.0.
+- **reportlab shrinks spaces** (2.69 vs 2.78 pt) to fit a justified line that overflows
+  by < 1 pt. PowerPoint cannot, so the frame takes `max(column, natural)`.
+- **Layout check by round trip.** Exporting our PPTX to PDF with PowerPoint and parsing
+  it gives exact positions. On d04, r01 and d23 every glyph is within 0.45 pt (dx
+  median 0.05 pt) horizontally and 0.4 pt vertically of the source PDF. d04's lower
+  ssim (0.954) comes from PowerPoint's raster `Slide.Export` of wrapped text; the truth
+  deck scores the same 0.955.
+
+### Checks
+
+| Check | Target | Result |
+|---|---|---|
+| Unit tests on hand-made pages | 2 columns, justified, nested bullets, superscripts, rotated block | **pass** (`tests/test_text_group.py`, 17 tests; also picture bullets, hyphenation, invisible text, axis ticks, roles, XY-cut, numbering) |
+| Synthetic: paragraph count + bullet levels = truth | ≥ 95% of slides | **96.4%** (54/56). Bullets present/absent 141/141 |
+| Font family = truth family | ≥ 95% of runs | **100%** (215/215). PowerPoint exports name their fonts, so these are name matches; the width-profile path is unit-tested (Georgia recovered from widths alone, distance < 0.01) |
+| `boxes_per_slide` ↓ ≥ 5× vs baseline | 5× | **Not met: 531 → 348 boxes (1.5×); on slides without tables/charts/scans 318 → 145 (2.2×).** The truth decks themselves have 158 boxes (3.4× below the baseline) because a table counts as 1 box and a chart as 0; those come in M6/M9. On text-only slides M4 has 145 boxes vs the truth's 137 (+6%) |
+| Born-digital `word_recall` ≥ 0.99, `text_sim` ≥ 0.98 | | **met**: median 1.000 / 1.000, mean 0.992 / 0.997 (58 slides; scans and the outlined d28 excluded) |
+| `ssim` not below baseline by > 2% | | **met**: synthetic median 0.995 vs 0.992, report median 0.966 vs 0.958. Worst slide d04 −2.0% (= the truth deck) |
+| `pytest -q`, `ruff check .`, `mypy` | clean | **110 passed** (~95 s), clean, clean |
+| `convert --corpus --no-cache` | | 33/33, all open in PowerPoint, ~9 s. `--mode editable` outputs open too |
+| Determinism | byte-identical | two full corpus runs: all 33 PPTX sha256-identical |
+| `--text-layout lines` = baseline | | max abs difference 0.0 on all 10 metrics, all 62 slides |
+| No leftover POWERPNT.EXE | | none after the tests, corpus runs and scoring |
+
+### Scores (`score --corpus --against out --label m4`) vs BASELINE
+
+Median over slides (mean in parentheses for ssim and text_sim).
+
+| set | label | ssim | reg_min | text_sim | w_recall | pos_err | lb_match | boxes (total) | composite |
+|---|---|---|---|---|---|---|---|---|---|
+| ALL (62) | baseline | 0.989 (0.987) | 0.957 | 1.000 (0.951) | 1.000 | 0.508 | 1.000 | 5 (531) | 0.896 |
+| ALL (62) | **m4** | **0.995 (0.991)** | **0.977** | 1.000 (0.949) | 1.000 | **0.444** | 1.000 | **3 (348)** | **0.898** |
+| synthetic (56) | baseline | 0.992 (0.989) | 0.957 | 1.000 (1.000) | 1.000 | 0.506 | 1.000 | 5 | 0.896 |
+| synthetic (56) | **m4** | **0.995 (0.993)** | **0.977** | 1.000 (0.997) | 1.000 | **0.436** | 1.000 | **3** | **0.898** |
+| synthetic (56) | truth decks | 0.994 (0.992) | 0.975 | 1.000 | 1.000 | 0.380 | 1.000 | 2 | 0.997 |
+| report (3) | baseline | 0.958 (0.947) | 0.865 | 1.000 (0.996) | 1.000 | 0.575 | 1.000 | 46 | 0.964 |
+| report (3) | **m4** | **0.966 (0.954)** | 0.865 | 1.000 (1.000) | 1.000 | 1.350 | 1.000 | **6** | 0.963 |
+| scanned (3) | both | 0.984 | 0.977 | 0.000 | 0.000 | n/a | 0.000 | 0 | 0.437 |
+
+Full tables are in `work/scores/m4/summary.md`; the structure check is in
+`work/scores/structure.json`. PowerPoint render + text layout per slide: median
+0.158 s (baseline 0.144 s).
+
+**Per-slide drops > 1% vs baseline.** Every one is explained:
+
+| slide | metric | baseline → m4 | truth deck | why |
+|---|---|---|---|---|
+| d02 p1 | word_recall | 1.000 → 0.808 | 0.808 | real autonumbers: COM `Words` has no list labels ("1.", "a)") |
+| d04 | ssim / reg_min | 0.974 / 0.899 → 0.954 / 0.814 | 0.955 / 0.820 | PowerPoint's raster of wrapped text; the layout is verified by round trip (≤ 0.45 pt) |
+| d05 | lb_match | 1.000 → 0.875 | 0.875 | `E = mc²` is one COM word but two pdfplumber words |
+| d19 p0/p1 | text_sim, w_recall, lb, real_txt | 1.0 → 0.88 / 0.96 | identical | the invisible duplicate link text (alpha 0) is no longer written |
+| d16 | reg_min 0.978 → 0.960, lb 1.0 → 0.667 | | 0.981 / 0.111 | the pie legend is one line with kept gaps, and pdfplumber splits it. Charts are M9 |
+
+`pos_err` on the reports (0.58 → 1.35) reflects the scorer's anchor, not the
+positions. COM line boxes put a percentage-spaced line's extra leading above the
+baseline, so the "bottom − space after" anchor sits lower than for a single-spaced
+line. The truth deck d23 (130% spacing) shows the same bias (1.46). The round trip
+puts the glyphs within 0.4 pt.
+
+### The 5 worst slides (by composite)
+
+| # | slide | composite | why |
+|---|---|---|---|
+| 1–3 | s02 p0, s01 p0/p1 | 0.43–0.44 | Scanned, image only (OCR is M8). |
+| 4 | d28 p0 | 0.810 | The −30° / 8° text exists only as outlines in the PDF (M8). The 270° box is grouped and rotated correctly. |
+| 5 | d19 p0 | 0.836 | See above (the truth deck scores the same text). It also has the one real grouping miss: "Docs: …" and "Write to us: …" are two equal-width lines with nothing that tells a wrap from a paragraph break, so they become one paragraph. |
+
+### Known gaps
+
+- **Font embedding is not written.** Candidates are found and recorded, but a
+  PowerPoint `.fntdata` part needs an EOT-style wrapper around a *complete* font with
+  a usable cmap. PDF programs are subsets with re-mapped or missing cmaps, and bare
+  CFF/Type 1 programs have no OS/2 table at all. Doing it needs a cmap rebuilt from
+  ToUnicode plus `name`/`OS/2` tables. No corpus file needs it (every font is
+  installed: 0 candidates on 33 PDFs), so it could not be verified either. The
+  fallback is the closest installed font.
+- Tables and charts stay as separate small boxes (in content order, so text_sim is
+  unchanged). They are most of the remaining box count (M6/M9).
+- Vertical (stacked) text, underline/strike detection (underlines stay as freeform
+  lines) and RTL scripts are not handled.
+- Mixed alignment inside one block uses one frame. A centred paragraph next to left
+  ones is centred on that frame, which can be off by the frame slack.
+- Two equal-width lines with no other evidence (d19 p0) are ambiguous. The
+  sentence-end tie-breaker only covers the "sentence + short line" case.
+- The `pos_err` anchor bias for non-single spacing (above) should be fixed in the
+  scorer: anchor on the baseline (top + 0.75 × line height for r ≥ 1).
+- Wrap safety relies on the PDF's own advance widths. A substituted font with
+  different widths can still re-wrap (the frame has 2–6 pt of slack). The M5 tuner
+  should check PowerPoint's line breaks and adjust the width or spacing.
+- The analyze cache key is the stage version only. When iterating on `analyze/`, use
+  `--no-cache` or bump the version.
+
+### Next
+
+Milestone 5: the fidelity tuner. Starting points:
+
+- `TextBlock.notes` carries `wrap_conflict`, `vdrift:<pt>` and `tight:<i>`, and
+  paragraphs carry their split reasons. These, together with the report's
+  low-confidence list, are the first candidates to tune.
+- The round-trip check (export the PPTX to PDF with PowerPoint, parse it, compare
+  glyph origins) is exact and cheap (~1 s per deck). It is a better signal for line
+  breaks and positions than COM word boxes; consider it for the tuner's inner loop.
+- `ppt_spacing()` already gives the spacing PowerPoint will really use, so the tuner
+  can solve for spacing and width with that model instead of searching blindly.

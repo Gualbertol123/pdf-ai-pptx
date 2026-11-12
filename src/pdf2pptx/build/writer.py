@@ -2,8 +2,12 @@
 
 * Slide size from the page size (the most common page size; other pages are
   scaled uniformly and centred).
-* Text: the page's TextBlocks; pages without any get one non-wrapping,
-  zero-margin text box per line (``build/lines.py``).
+* Text (M4): one wrapping, zero-margin text box per TextBlock with paragraph
+  properties (alignment, indents, line spacing, space after, level) and real
+  PowerPoint bullets (character, autonumber, picture). Autofit is off except in
+  ``editable`` mode (shrink on overflow). ``TextOptions.layout="lines"`` (or a page
+  without TextBlocks) writes the M2 baseline instead: one non-wrapping box per line
+  (``build/lines.py``).
 * Images placed with crop, rotation and flips; every vector path as a freeform.
 * z-order kept: elements are written in IR ``z`` order.
 * A page that fails to build (or failed to parse) becomes its 300-DPI render as a
@@ -13,7 +17,9 @@
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
+import hashlib
 import io
 import zipfile
 from collections import Counter
@@ -21,6 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from lxml import etree
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.text import MSO_AUTO_SIZE
@@ -29,10 +36,16 @@ from pptx.util import Emu
 
 from .. import log
 from ..ingest.render import ensure_render
-from ..ir import Color, Document, Image, Page, Shape, TextBlock
+from ..ir import Bullet, Color, Document, Image, Page, Paragraph, Shape, TextBlock, TextRun
 from . import xml_ext
 from .lines import line_blocks
-from .units import pt_to_centipoints, pt_to_emu
+from .units import pct_to_ooxml, ppt_spacing, pt_to_centipoints, pt_to_emu
+
+TEXT_LAYOUTS = ("blocks", "lines")
+SINGLE_LINE = 1.2  # PowerPoint single line height / font size (measured, all fonts)
+BULLET_IMAGE_NOTE = "bullet_image"  # analyze/text.py marks images drawn as bullets
+_ALIGN = {"left": "l", "center": "ctr", "right": "r", "justify": "just",
+          "distributed": "dist"}
 
 LOG = log.get(__name__)
 
@@ -58,6 +71,21 @@ class _Xf:
 
     def d(self, v: float) -> int:
         return pt_to_emu(v * self.s)
+
+
+@dataclass
+class TextOptions:
+    """What the writer may do with text, from the mode."""
+
+    layout: str = "blocks"  # blocks | lines (the M2 baseline, for comparison)
+    autofit: str = "none"  # none | shrink
+    keep_hyphens: bool = True  # False: drop end-of-line hyphenation (editable)
+
+    @classmethod
+    def for_mode(cls, mode: str, layout: str = "blocks") -> TextOptions:
+        editable = mode in ("editable", "deck")
+        return cls(layout=layout, autofit="shrink" if editable else "none",
+                   keep_hyphens=not editable)
 
 
 @dataclass
@@ -104,7 +132,126 @@ def _rgb(c: Color | None) -> RGBColor:
 # --------------------------------------------------------------------------- elements
 
 
-def _add_text(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]]) -> None:
+def _el(parent: Any, tag: str, **attrs: str) -> Any:
+    el = etree.SubElement(parent, qn(tag))
+    for k, v in attrs.items():
+        el.set(k, v)
+    return el
+
+
+def _srgb(parent: Any, c: Color) -> None:
+    _el(parent, "a:srgbClr", val=(c.rgb or "000000").upper())
+
+
+def _para_props(p: Any, para: Paragraph, xf: _Xf, opts: TextOptions, slide: Any,
+                work_dir: Path, pictures: dict[str, Image]) -> None:
+    """``a:pPr`` attributes and children, in schema order."""
+    ppr = p._p.get_or_add_pPr()
+    if para.alignment in _ALIGN and para.alignment != "left":
+        ppr.set("algn", _ALIGN[para.alignment])
+    if para.level:
+        ppr.set("lvl", str(min(para.level, 8)))
+    if para.indent_left or para.indent_first or para.bullet.kind != "none" or para.level:
+        ppr.set("marL", str(xf.d(para.indent_left)))
+        ppr.set("indent", str(xf.d(para.indent_first)))
+    # Spacing in points goes out as whole points or whole percent of single spacing
+    # (1.2 x the paragraph's font size), whichever PowerPoint rounds closer (M4).
+    single = SINGLE_LINE * xf.s * max((r.size for r in para.runs if not r.baseline_shift),
+                                      default=12.0)
+
+    def spacing(tag: str, pt: float) -> None:
+        kind, val, _ = ppt_spacing(pt * xf.s, single)
+        _el(_el(ppr, tag), f"a:{kind}", val=str(val))
+
+    if para.line_spacing_rule == "exact" and para.line_spacing:
+        spacing("a:lnSpc", para.line_spacing)
+    elif para.line_spacing_rule == "multiple" and para.line_spacing:
+        _el(_el(ppr, "a:lnSpc"), "a:spcPct", val=str(pct_to_ooxml(para.line_spacing)))
+    if para.space_before:
+        spacing("a:spcBef", para.space_before)
+    if para.space_after:
+        spacing("a:spcAft", para.space_after)
+    _bullet_props(ppr, para.bullet, slide, work_dir, pictures)
+
+
+def _bullet_props(ppr: Any, b: Bullet, slide: Any, work_dir: Path,
+                  pictures: dict[str, Image]) -> None:
+    if b.kind == "none":
+        if ppr.get("marL") is not None:  # an indented plain paragraph: no inherited bullet
+            _el(ppr, "a:buNone")
+        return
+    if b.kind == "picture":
+        img = pictures.get(b.image_id or "")
+        if img is not None:
+            _el(ppr, "a:buSzPct", val=str(pct_to_ooxml((b.size_pct or 100.0) / 100.0)))
+            _, rid = slide.part.get_or_add_image_part(str(work_dir / img.file))
+            blip = _el(_el(ppr, "a:buBlip"), "a:blip")
+            blip.set(qn("r:embed"), rid)
+            return
+        b = Bullet(kind="char", char="•")
+    if b.color is not None and b.color.rgb:
+        _srgb(_el(ppr, "a:buClr"), b.color)
+    if b.size_pct:
+        _el(ppr, "a:buSzPct", val=str(pct_to_ooxml(b.size_pct / 100.0)))
+    if b.kind == "char":
+        if b.font:
+            _el(ppr, "a:buFont", typeface=b.font)
+        _el(ppr, "a:buChar", char=_xml_safe(b.char or "•") or "•")
+    elif b.kind == "autonum":
+        an = _el(ppr, "a:buAutoNum", type=b.scheme or "arabicPeriod")
+        if b.start_at and b.start_at != 1:
+            an.set("startAt", str(b.start_at))
+
+
+def _run_props(rpr: Any, run: TextRun, xf: _Xf) -> None:
+    rpr.set("lang", rpr.get("lang") or "en-US")
+    rpr.set("sz", str(pt_to_centipoints(run.size * xf.s)))
+    if run.bold:
+        rpr.set("b", "1")
+    if run.italic:
+        rpr.set("i", "1")
+    if run.underline:
+        rpr.set("u", "sng")
+    if run.strike:
+        rpr.set("strike", "sngStrike")
+    if run.baseline_shift:
+        rpr.set("baseline", str(round(run.baseline_shift * 1000)))
+    if run.char_spacing:
+        rpr.set("spc", str(pt_to_centipoints(run.char_spacing * xf.s)))
+    _srgb(_el(rpr, "a:solidFill"), run.color)
+    if run.font:
+        _el(rpr, "a:latin", typeface=run.font)
+        _el(rpr, "a:cs", typeface=run.font)
+
+
+def _field(p: Any, run: TextRun, text: str, xf: _Xf, key: str) -> None:
+    g = hashlib.sha256(key.encode()).hexdigest().upper()
+    fld = etree.SubElement(p._p, qn("a:fld"))
+    fld.set("id", f"{{{g[:8]}-{g[8:12]}-{g[12:16]}-{g[16:20]}-{g[20:32]}}}")
+    fld.set("type", run.field_type or "slidenum")
+    _run_props(etree.SubElement(fld, qn("a:rPr")), run, xf)
+    etree.SubElement(fld, qn("a:t")).text = text
+    end = p._p.find(qn("a:endParaRPr"))
+    if end is not None:  # endParaRPr stays last
+        p._p.remove(end)
+        p._p.append(end)
+
+
+def _drop_hyphens(para: Paragraph) -> list[TextRun]:
+    """Runs with end-of-line hyphenation removed (``hyphen:<run>:<offset>`` notes)."""
+    cuts = sorted(((int(n.split(":")[1]), int(n.split(":")[2])) for n in para.notes
+                   if n.startswith("hyphen:")), reverse=True)
+    runs = [dataclasses.replace(r) for r in para.runs]
+    for ri, off in cuts:
+        if 0 <= ri < len(runs) and runs[ri].text[off:off + 1] in ("-", "­"):
+            runs[ri].text = runs[ri].text[:off] + runs[ri].text[off + 1:]
+    return runs
+
+
+def _add_text(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]],
+              opts: TextOptions | None = None, work_dir: Path | None = None,
+              pictures: dict[str, Image] | None = None) -> None:
+    opts = opts or TextOptions()
     x0, y0, x1, y1 = tb.bbox
     shape = slide.shapes.add_textbox(Emu(xf.x(x0)), Emu(xf.y(y0)), Emu(xf.d(x1 - x0)),
                                      Emu(xf.d(y1 - y0)))
@@ -112,27 +259,39 @@ def _add_text(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]
         shape.rotation = tb.rotation
     tf = shape.text_frame
     tf.word_wrap = tb.wrap
-    tf.auto_size = MSO_AUTO_SIZE.NONE
+    baseline = "baseline_line" in tb.notes
+    tf.auto_size = (MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE if opts.autofit == "shrink" and not baseline
+                    else MSO_AUTO_SIZE.NONE)
     ml, mt, mr, mb = tb.margins
     tf.margin_left, tf.margin_top = Emu(xf.d(ml)), Emu(xf.d(mt))
     tf.margin_right, tf.margin_bottom = Emu(xf.d(mr)), Emu(xf.d(mb))
     for pi, para in enumerate(tb.paragraphs):
         p = tf.paragraphs[0] if pi == 0 else tf.add_paragraph()
-        for run in para.runs:
+        if not baseline:
+            _para_props(p, para, xf, opts, slide, work_dir or Path("."), pictures or {})
+        runs = para.runs if opts.keep_hyphens else _drop_hyphens(para)
+        for ri, run in enumerate(runs):
             text = _xml_safe(run.text)
             if not text:
                 continue
+            if run.field_type and not baseline:
+                _field(p, run, text, xf, f"{tb.id}/{pi}/{ri}")
+                continue
             r = p.add_run()
             r.text = text
-            f = r.font
-            if run.font:
-                f.name = run.font
-            f.size = Emu(xf.d(run.size))
-            f.bold = run.bold
-            f.italic = run.italic
-            f.color.rgb = _rgb(run.color)
-            if run.char_spacing:
-                r._r.get_or_add_rPr().set("spc", str(pt_to_centipoints(run.char_spacing * xf.s)))
+            if baseline:  # the M2 path, byte-for-byte as before
+                f = r.font
+                if run.font:
+                    f.name = run.font
+                f.size = Emu(xf.d(run.size))
+                f.bold = run.bold
+                f.italic = run.italic
+                f.color.rgb = _rgb(run.color)
+                if run.char_spacing:
+                    r._r.get_or_add_rPr().set("spc",
+                                              str(pt_to_centipoints(run.char_spacing * xf.s)))
+            else:
+                _run_props(r._r.get_or_add_rPr(), run, xf)
             if run.hyperlink and not run.hyperlink.startswith("#slide="):
                 r.hyperlink.address = run.hyperlink
             elif run.hyperlink:
@@ -216,17 +375,24 @@ def _clear(slide: Any) -> None:
 
 
 def _build_page(slide: Any, page: Page, doc: Document, work_dir: Path, sw: float, sh: float,
-                internal: list[tuple[Any, int]], rep: WriteReport) -> None:
+                internal: list[tuple[Any, int]], rep: WriteReport,
+                opts: TextOptions | None = None) -> None:
+    opts = opts or TextOptions()
     xf = _xf_for(page, sw, sh)
     items: list[Any] = list(page.elements)
-    if not any(isinstance(e, TextBlock) for e in items):
+    if opts.layout == "blocks" and any(isinstance(e, TextBlock) for e in items):
+        items = [e for e in items if not (isinstance(e, Image) and BULLET_IMAGE_NOTE in e.notes)]
+    else:
+        items = [e for e in items if not isinstance(e, TextBlock)]
         items.extend(line_blocks(page, doc.fonts))
-    # stable: by z, text after graphics of the same z (text objects own their z anyway)
-    order = sorted(range(len(items)), key=lambda i: (items[i].z, i))
+    pictures = {e.id: e for e in page.elements if isinstance(e, Image)}
+    # stable: by z; text ties broken by reading order
+    order = sorted(range(len(items)), key=lambda i: (
+        items[i].z, getattr(items[i], "reading_order", None) or 0, i))
     for i in order:
         e = items[i]
         if isinstance(e, TextBlock):
-            _add_text(slide, e, xf, internal)
+            _add_text(slide, e, xf, internal, opts, work_dir, pictures)
             rep.counts["text_boxes"] += 1
         elif isinstance(e, Image):
             _add_picture(slide, e, xf, work_dir)
@@ -238,8 +404,10 @@ def _build_page(slide: Any, page: Page, doc: Document, work_dir: Path, sw: float
             rep.counts[f"skipped_{e.kind}"] += 1
 
 
-def write_pptx(doc: Document, out: Path, work_dir: Path, pdf: Path) -> WriteReport:
+def write_pptx(doc: Document, out: Path, work_dir: Path, pdf: Path,
+               opts: TextOptions | None = None) -> WriteReport:
     """Write ``doc`` to ``out``. Never fails because of a single page."""
+    opts = opts or TextOptions()
     rep = WriteReport()
     prs = Presentation()
     sw, sh, g = slide_size(doc)
@@ -259,7 +427,7 @@ def write_pptx(doc: Document, out: Path, work_dir: Path, pdf: Path) -> WriteRepo
         if not page.triage.fallback_image:
             try:
                 n_links = len(internal)
-                _build_page(slide, page, doc, work_dir, sw, sh, internal, rep)
+                _build_page(slide, page, doc, work_dir, sw, sh, internal, rep, opts)
                 rep.slides += 1
                 continue
             except Exception as exc:

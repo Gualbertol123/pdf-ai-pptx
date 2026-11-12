@@ -14,6 +14,7 @@ from typing import Any
 
 MODES = ("fidelity", "balanced", "editable", "deck")
 TIERS = ("auto", "lite", "max")
+TEXT_LAYOUTS = ("blocks", "lines")  # lines = the M2 baseline, one box per line
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_FILENAME = "pdf2pptx.toml"
@@ -92,6 +93,7 @@ class Config:
     tune_rounds: int = 4
     com_timeout_s: float = 60.0
     seed: int = 1234
+    text_layout: str = "blocks"
 
     def __post_init__(self) -> None:
         if self.mode not in MODES:
@@ -100,6 +102,9 @@ class Config:
             raise ValueError(f"tier must be one of {TIERS}, got {self.tier!r}")
         if self.workers < 1:
             raise ValueError("workers must be >= 1")
+        if self.text_layout not in TEXT_LAYOUTS:
+            raise ValueError(f"text_layout must be one of {TEXT_LAYOUTS}, "
+                             f"got {self.text_layout!r}")
 
     @property
     def limits(self) -> ModeLimits:

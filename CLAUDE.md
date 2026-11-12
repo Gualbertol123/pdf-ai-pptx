@@ -16,6 +16,8 @@ the latest PROGRESS.md entry before starting a prompt.
 .venv\Scripts\pdf2pptx convert --corpus --no-cache     # ~12 s -> out/corpus, + PowerPoint open check
 .venv\Scripts\pdf2pptx score --corpus --against truth|blank|out --label NAME [--as-baseline]
 .venv\Scripts\pdf2pptx report a.pdf [b.pdf ...]          # -> out/report/<stem>.html (+ index.html)
+.venv\Scripts\pdf2pptx structure [--no-cache]          # paragraphs/levels/fonts vs synthetic truth
+.venv\Scripts\pdf2pptx convert ... --text-layout lines  # the M2 one-box-per-line baseline
 ```
 
 Scores go to `work/scores/<label>/` (git-ignored). `work/scores/truth` and `blank` hold
@@ -55,3 +57,10 @@ milestone must beat. Re-run them if missing.
 - pdfium quirks (M2): pattern fills report as opaque white, soft masks don't show in
   `HasTransparency`; see PROGRESS.md M2 for the workarounds.
 - More measured COM facts (text-layout boxes, table-cell offsets): PROGRESS.md, M1.
+- PowerPoint rounds `spcPts` (line and paragraph spacing) to whole points and `spcPct`
+  to whole percent. The writer picks whichever lands closer (`build/units.ppt_spacing`)
+  and the analyzer predicts positions with the same rounding. Details: PROGRESS.md M4.
+- The installed-font index is cached in `%LOCALAPPDATA%\pdf2pptx\cache\font_index.json`
+  (`PDF2PPTX_FONT_INDEX` overrides); a changed font file is re-read automatically.
+- While iterating on `analyze/`, run `convert`/`structure` with `--no-cache` (or bump
+  `STAGE_VERSIONS["analyze"]`): the analyze cache key is the stage version only.

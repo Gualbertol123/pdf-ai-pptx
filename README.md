@@ -30,7 +30,8 @@ runs, but every score that needs PowerPoint comes out as `null`.
 | `pdf2pptx corpus list` | Lists the corpus | M1 |
 | `pdf2pptx score <pdf> <pptx>` | Scores one PPTX against its PDF → `work/scores/single/` | M1 |
 | `pdf2pptx score --corpus [--against out\|truth\|blank] [--label L]` | Scores the whole corpus → `work/scores/<label>/` (per-file JSON, `summary.json`, `summary.md`) | M1 |
-| `pdf2pptx convert in.pdf -o out.pptx [--mode ...]` | Converts a PDF | M2 |
+| `pdf2pptx convert in.pdf -o out.pptx [--mode ...] [--text-layout blocks\|lines]` | Converts a PDF. Text comes out as one wrapping box per text block with paragraphs, real bullets and matched fonts (M4); `--text-layout lines` writes the M2 baseline (one box per line) for comparison | M2, M4 |
+| `pdf2pptx structure [--only NAME ...] [--no-cache]` | Compares the analyzed paragraphs, levels, bullets and font families with the synthetic decks' truth → `work/scores/structure.json` | M4 |
 | `pdf2pptx report <pdf> [<pdf> ...] [-o file/dir] [--pptx P]` | Converts, scores and writes one self-contained HTML per PDF to `out/report/` (PDF \| PPTX \| diff heatmap, IR overlays, sortable scores); several PDFs (or `--corpus [--only ...]`) also get an `index.html` | M3 |
 | `pdf2pptx setup models\|llm` | Downloads models and tools | stub, arrives in M8/M9 |
 
