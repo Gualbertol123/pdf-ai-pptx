@@ -6,7 +6,7 @@
 | 2 | Ingest and baseline converter | **done** | 2026-11-12 |
 | 3 | PowerPoint check engine and debug report | **done** | 2026-11-12 |
 | 4 | Text understanding and fonts | **done** | 2026-11-12 |
-| 5 | Fidelity tuner | not started | |
+| 5 | Fidelity tuner | **done** | 2026-11-12 |
 | 6 | Graphics and tables | not started | |
 | 7 | Document structure | not started | |
 | 8 | Hard pages (OCR, layout model, background cleanup) | not started | |
@@ -815,3 +815,202 @@ code at `4290aa2`):
 - **Test fixtures.** `tests/test_text_group.py::PageBuilder` builds hand-made pages
   (monospace 0.5 em glyphs, wrapped/justified text). Use it for the "block 10% too
   narrow" test: shrink the analyzed `TextBlock.bbox` before writing.
+
+---
+
+## Milestone 5: fidelity tuner (2026-11-12)
+
+### What exists
+
+- **`verify/tuner.py`**: render → compare → adjust → re-render, per text block.
+  - **Mapping.** The writer names every block's text box `TextBlock <block id>`, so
+    COM `text_layout` shapes map back to IR blocks. Both sides are reduced to offsets
+    in the block's non-space character stream. PDF lines come from the runs'
+    `glyph_ids` (a new line where the baseline jumps; sub/superscripts stay on their
+    line). PowerPoint lines come from `text_layout`. A break matches or it doesn't.
+  - **Positions.** A PDF round trip (PowerPoint `SaveAs` PDF; glyphs read only on the
+    measured slides). The exported glyphs inside a COM line box give that line's exact
+    baseline and first-character x.
+  - **Wrap model.** Built from PowerPoint's own word boxes: token widths, natural gaps
+    (measured on unstretched lines; for justified paragraphs on their last line), and
+    line starts. PowerPoint may wrap after a hyphen. Per PDF line it gives the width
+    the line needs, and the width at which the next word would join it, as linear
+    functions of the spc change δ and the size factor f.
+  - **Fixes, in order, bounded by `ModeLimits`:**
+    1. Breaks wrong: the first feasible (f, δ) in the order width only → spc → size
+       (0.1 pt steps). Justified blocks prefer the PDF's column width (same word
+       spacing); others keep the current width when it is inside the interval.
+       A per-block **width bracket** is kept from what PowerPoint actually did at each
+       width: at the first differing break, PowerPoint breaking first means too
+       narrow, otherwise too wide. A model answer outside the bracket is replaced by
+       bisection, which ended an oscillation on r01. Last resort, only when
+       `forced_line_breaks` is allowed (fidelity): a soft break (`a:br`) at every PDF
+       wrap position.
+    2. Breaks right: exact line spacing where PowerPoint's pitch differs from the
+       PDF's by more than 0.3 pt. It goes through `units.ppt_spacing` and is applied
+       only if the rounded value is closer.
+    3. Then an offset that puts the first baseline on the PDF's. Start x moves too
+       when all lines agree (spread ≤ 0.4 pt). The offset is capped by
+       `max_offset_pt` (the tuner's own cumulative move).
+  - **Never worse.** Every change is re-measured. The best version per block (break
+    mismatches, then median line-anchor distance) is kept; a worse result is reverted
+    and the block frozen. Blocks that match (0 breaks, pos ≤ 0.3 pt) stop early.
+  - **Rounds.** ≤ `tune_rounds` (default 4) re-renders; only slides with changes are
+    re-measured.
+  - **Whole-slide pass** (fidelity, balanced). After the text rounds, each shape and
+    picture's PDF render is matched against the PowerPoint render (±6 px, NCC ≥ 0.9,
+    ≥ 0.03 above the unshifted match, confirmed by the reverse match). It is
+    translated back, kept only if its local SSIM improves, and reverted otherwise.
+  - **Record.** A changed element gets `source="tuner"`, `tuner:from:<old source>`
+    and net-change notes (`tuner:width:+3.20`, `tuner:spc:-0.05`, `tuner:size:-0.2`,
+    `tuner:lnspc:1:exact=14.4`, `tuner:move:dx,dy`, `tuner:br:<para>:<n>`,
+    `tuner:eval:breaks a->b,pos a->b`). Unfixed blocks get `tuner:unresolved:…`. The
+    run summary (rounds, timing by phase and by slide, counts) is in
+    `Document.metadata["pdf2pptx:tuner"]` and in `<name>.convert.json["tune"]`.
+  - **Degrades.** Without PowerPoint, or on any tuner error, the untuned deck stays
+    and the reason is recorded. Rotated and vertical blocks, and `--text-layout
+    lines`, are not tuned.
+- **Mode limits** (`config.ModeLimits`; new fields: `max_width_change`, `max_offset_pt`,
+  `slide_pass`):
+
+  | mode | forced breaks | size | spc | width | offset | slide pass | tune by default |
+  |---|---|---|---|---|---|---|---|
+  | fidelity | yes | ±10% | ±1.5 pt | ±25% | 6 pt | yes | yes |
+  | balanced | no | ±5% | ±0.8 pt | ±15% | 4 pt | yes | yes |
+  | editable | no | ±3% | ±0.4 pt | ±10% | 3 pt | no | no |
+
+- **Pipeline / CLI.**
+  - `convert … --tune/--no-tune --tune-rounds N` (default: the mode's setting).
+  - A new common flag `--out-dir`, so per-mode corpus runs can live side by side
+    (`convert --corpus --mode fidelity --out-dir out/fidelity`, then
+    `score --corpus --out-dir out/fidelity`).
+  - `convert --corpus` builds in the process pool, then tunes every file
+    sequentially in the main process on one PowerPoint engine. Tuning time is added
+    to `seconds` / `seconds_per_page`.
+- **Writer.** Shape names `TextBlock <id>`; `\v` in a run is written as `<a:br>` with
+  the run's properties (`_xml_safe` used to strip it).
+- **Scorer fix** (`ppt_com._collect_text_frame`). A line that ends in a soft break
+  (VT) is no longer treated as a paragraph end: space-after belongs to the
+  paragraph's last line only. Rescoring the truth decks gives no per-slide change
+  > 1%.
+- **Report.** Each page lists its tuner adjustments (id, kind, notes), and
+  `source=tuner` boxes have their own colour.
+- **`ppt_com.set_geometry`**: a COM in-memory edit of left/top/width, kept only to
+  re-run the edit-path benchmark below.
+
+### Measured facts that later milestones rely on
+
+- **`spc` is not rounded.** The rendered extra advance per character is ≈ 0.955 × spc
+  (0.13 pt → 0.116, 0.5 → 0.471, 1.0 → 0.955, −0.5 → −0.497; 20 pt Arial). The
+  model uses `SPC_EFFECT = 0.955`.
+- **Font sizes in 0.1 pt steps are honoured** (20.1/20.2/20.5/20.7 pt all render at
+  their size).
+- **Edit path: python-pptx rewrite + reopen vs COM in-memory edits** (per round,
+  including `text_layout` of the slide; median of 3):
+
+  | deck | rewrite + reopen + layout | COM edit + layout | export 1 slide (ranged) | export deck |
+  |---|---|---|---|---|
+  | d23 (2 slides) | 0.35 s | 0.25 s | 0.18 s | 0.19 s |
+  | r01 (1 slide, 376 words) | 0.88 s | 0.72 s | 0.29 s | 0.26 s |
+  | d26 (1 slide, 20 boxes) | 0.28 s | 0.19 s | 0.28 s | 0.27 s |
+  | d17 (5 slides) | 0.16 s | 0.06 s | 0.13 s | 0.16 s |
+
+  **Chosen: python-pptx.** COM saves ~0.1 s per round because PowerPoint's layout
+  dominates, but it would measure a file that differs from the one shipped, with
+  different rounding of what COM sets.
+- **A ranged `ExportAsFixedFormat` (PrintOptions.Ranges) crashes PowerPoint**
+  (`0x800706BA`, "Server RPC non disponibile") on the first export after some decks
+  (d12 → d13, d13 → d14, reproducible in sequence, never in isolation). The engine
+  recovered each time, but the tuner now uses whole-deck `SaveAs` PDF, which has
+  been stable since M1 and costs about the same.
+- **Intermittent `SaveAs` PDF stalls of 7–10.4 s.** Seen in 3 of ~10 full corpus runs,
+  on 1–5 decks each, never on the same deck twice; timing shows the wait inside the
+  export call. No error is raised. The cause is not established (a constant
+  ~10.2 s suggests a retry on a locked file, e.g. a scanner). They push single
+  slides past 3 s but not the median.
+
+### Checks
+
+| Check | Target | Result |
+|---|---|---|
+| Synthetic, balanced: `linebreak_match` | ≥ 0.98 | **median 1.000**, mean 0.970. The truth decks themselves score mean 0.884. Every slide below 0.98 scores the same as or better than its truth deck: d28 (outlined text, 0.111), d16 (pie legend split by pdfplumber, 0.667 vs truth 0.111), d19 p0/p1 (invisible duplicate link text, 0.833), d05 (`E = mc²`, 0.875). Without d28 the mean is 0.986 |
+| Synthetic, balanced: median `ssim` | ≥ 0.95 | **0.995** |
+| Synthetic, balanced: median `pos_err_pt` | ≤ 1.5 | **0.428** (M4 0.436) |
+| Editable: no forced line breaks | none in output | `test_editable_never_forces_line_breaks_fidelity_may`: a block 30% too narrow in editable → 0 `a:br` and 0 forced; the same block in fidelity with no width/spc/size room → forced breaks, all breaks match. Corpus: 0 forced breaks in every mode |
+| A block 10% too narrow is fixed within the round limit | ≤ 4 rounds | `test_a_block_10_percent_too_narrow_is_fixed` (d23 justified paragraphs, balanced): breaks 9 → 0 in 1 fix round, `tuner:width:+…` recorded; two runs give byte-identical PPTX |
+| Never worse | | Every PowerPoint test asserts best ≥ first per block; corpus runs: 0 reverts |
+| Deterministic | | two tuned corpus runs: **33/33 PPTX byte-identical** |
+| Tuning time per slide (median) | ≤ 3 s | **0.37 s** (mean 0.57, p90 1.24, max 2.97; n = 59 slides, balanced; per document 0.68 s/slide median). Stress set (all blocks perturbed): **0.88 s** median, p90 2.36, max 3.97 |
+| No score regresses vs M4 by > 1% | | **none** in balanced, fidelity, editable or editable --tune. The one per-slide change > 1% is better (d16 region_ssim_min 0.960 → 0.980) |
+| `pytest -q`, `ruff check .`, `mypy` | clean | **119 passed** (~100 s), clean, clean |
+| `convert --corpus --no-cache` | | 33/33, 33/33 open in PowerPoint, 44 s including tuning; no COM warnings in the final runs |
+
+### Scores per mode (median over slides; mean in parentheses)
+
+| set | label | ssim | reg_min | text_sim | w_recall | pos_err | lb_match | boxes | composite |
+|---|---|---|---|---|---|---|---|---|---|
+| ALL (62) | M4 | 0.995 (0.991) | 0.977 | 1.000 | 1.000 | 0.444 (0.460) | 1.000 (0.925) | 3 | 0.898 |
+| ALL (62) | **fidelity** | 0.995 (0.991) | 0.977 | 1.000 | 1.000 | **0.440** (0.457) | 1.000 (0.925) | 3 | 0.898 |
+| ALL (62) | **balanced** | 0.995 (0.991) | 0.977 | 1.000 | 1.000 | **0.440** (0.457) | 1.000 (0.925) | 3 | 0.898 |
+| ALL (62) | **editable** (untuned default) | 0.995 (0.991) | 0.977 | 1.000 | 1.000 | 0.444 (0.460) | 1.000 (0.925) | 3 | 0.898 |
+| ALL (62) | editable --tune | 0.995 (0.991) | 0.977 | 1.000 | 1.000 | 0.440 (0.457) | 1.000 (0.925) | 3 | 0.898 |
+| synthetic (56) | M4 | 0.995 (0.993) | 0.977 | 1.000 | 1.000 | 0.436 (0.423) | 1.000 (0.970) | 3 | 0.898 |
+| synthetic (56) | balanced / fidelity | 0.995 (0.993) | 0.977 | 1.000 | 1.000 | **0.428** (0.420) | 1.000 (0.970) | 3 | 0.898 |
+| report (3) | M4 = every mode | 0.966 (0.954) | 0.865 | 1.000 | 1.000 | 1.350 (1.144) | 1.000 (1.000) | 6 | 0.963 |
+
+Labels: `work/scores/m5_balanced`, `m5_fidelity`, `m5_editable`,
+`m5_editable_tuned`; `truth_m5` is the truth rescore.
+
+**What the tuner found on the real corpus.** Almost nothing to do: M4's analysis
+already places the corpus within PowerPoint's rounding. Of the 347 tunable blocks,
+346 match before tuning: 0 break mismatches, and every line's baseline and start
+within 0.3 pt. The one exception is d16's pie legend, 0.37 pt off; it was moved
+−0.36 pt (0.37 → 0.07). The slide pass found 8 candidate shape shifts, and all 8
+failed the SSIM check and were reverted. Fidelity and balanced therefore score
+the same here; they differ only in what they are *allowed* to do (see the stress set).
+
+### Stress set: every block perturbed (balanced)
+
+To exercise the tuner on the corpus, every wrapping, unrotated block on every
+non-scanned page (347 blocks) was made 10% narrower (alignment anchor kept) and
+moved 1.5 pt down. The perturbed decks were then scored untuned and tuned.
+
+| | breaks (sum) | blocks matched | ssim | reg_min | pos_err median (mean) | lb_match mean | composite |
+|---|---|---|---|---|---|---|---|
+| unperturbed (balanced) | 0 | 347 | 0.995 | 0.977 | 0.440 (0.457) | 0.925 | 0.898 |
+| perturbed, untuned | **291** | 0 | 0.959 | 0.815 | 2.166 (20.19) | 0.859 | 0.879 |
+| perturbed, **tuned** | **0** | **347** | **0.994** | **0.975** | **0.379** (0.411) | **0.972** | **0.898** |
+
+- 30 of 31 decks finish in 2 rounds (one fix + one position fix) and one in 3, with
+  0 reverts.
+- Reports alone: ssim 0.919 → 0.967 (unperturbed 0.966) and lb_match 0.625 → 1.000.
+- Getting there needed three fixes found on this set: the width bracket, natural
+  gaps of justified paragraphs, and the justified-column preference. A
+  dataclass-field-order bug from the last of these had silently dropped every
+  wrap upper bound; a unit test now guards it.
+
+### Top remaining failure types
+
+1. **Scorer-side line-break misses, not layout.** d28 (text outlined in the PDF), the
+   d16 legend, d19 (invisible duplicate link text) and d05 (`E = mc²`) keep
+   `linebreak_match` mean at 0.970. The truth decks score the same or lower.
+2. **Any width inside the feasible interval is accepted.** On the stress set a few
+   slides keep 1–2% lower region SSIM than the unperturbed analysis (d01, d19, d22,
+   d23, r01) with every break and baseline right. The residue is sub-0.3 pt
+   horizontal differences and justified stretch within the 1.5 pt margin.
+3. **Width first, spc second.** When the cause is a wider substituted font, the
+   block is widened until the breaks match. The breaks are then right, but words
+   drift right along the line; spc is only used when width alone cannot work.
+   Charging horizontal word error in the block score would let spc win there.
+4. **Intermittent 7–10 s PowerPoint PDF-export stalls** (see above). They are rare
+   but set the per-slide maximum.
+5. **Not tuned:** rotated and vertical text, `wrap=False` boxes' widths, table and
+   chart frames (still separate text boxes until M6/M9). The slide pass costs up to
+   ~2 s on chart slides for candidates that, on this corpus, are all rejected.
+
+### Next
+
+Milestone 6: graphics and tables (native shapes, native tables). The tuner works on
+any `TextBlock`. When tables arrive, their cell text shows up in `text_layout` as
+`<table>[r,c]` shapes and needs its own mapping (cell → block) before it can be
+tuned.

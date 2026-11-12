@@ -27,11 +27,14 @@ def default_models_dir() -> Path:
 
 @dataclass(frozen=True, kw_only=True)
 class ModeLimits:
-    """What the tuner/builder may do in a mode (filled in by later milestones)."""
+    """What the tuner/builder may do in a mode (M5 tuner: verify/tuner.py)."""
 
-    forced_line_breaks: bool
+    forced_line_breaks: bool  # tuner may insert a:br at the PDF's break positions
     max_font_size_change: float  # fraction, e.g. 0.03 = ±3%
-    max_char_spacing_pt: float
+    max_char_spacing_pt: float  # max |change| of character spacing (spc), pt
+    max_width_change: float  # fraction of the analysed text box width
+    max_offset_pt: float  # max |shift| of a text box / shape by the tuner
+    slide_pass: bool  # pixel-diff translation pass over shapes and images
     use_placeholders: bool
     use_theme: bool
     autofit: str  # none | shrink
@@ -43,6 +46,9 @@ MODE_LIMITS: dict[str, ModeLimits] = {
         forced_line_breaks=True,
         max_font_size_change=0.10,
         max_char_spacing_pt=1.5,
+        max_width_change=0.25,
+        max_offset_pt=6.0,
+        slide_pass=True,
         use_placeholders=False,
         use_theme=False,
         autofit="none",
@@ -52,6 +58,9 @@ MODE_LIMITS: dict[str, ModeLimits] = {
         forced_line_breaks=False,
         max_font_size_change=0.05,
         max_char_spacing_pt=0.8,
+        max_width_change=0.15,
+        max_offset_pt=4.0,
+        slide_pass=True,
         use_placeholders=True,
         use_theme=True,
         autofit="none",
@@ -61,6 +70,9 @@ MODE_LIMITS: dict[str, ModeLimits] = {
         forced_line_breaks=False,
         max_font_size_change=0.03,
         max_char_spacing_pt=0.4,
+        max_width_change=0.10,
+        max_offset_pt=3.0,
+        slide_pass=False,
         use_placeholders=True,
         use_theme=True,
         autofit="shrink",
@@ -70,6 +82,9 @@ MODE_LIMITS: dict[str, ModeLimits] = {
         forced_line_breaks=False,
         max_font_size_change=0.03,
         max_char_spacing_pt=0.0,
+        max_width_change=0.10,
+        max_offset_pt=3.0,
+        slide_pass=False,
         use_placeholders=True,
         use_theme=True,
         autofit="shrink",

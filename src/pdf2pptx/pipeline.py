@@ -111,6 +111,7 @@ class ConvertResult:
     counts: dict[str, int] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     crosscheck: dict[str, Any] | None = None
+    tune: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -150,15 +151,34 @@ def analyzed(pdf: Path, cfg: Config, *, workers: int | None = None,
     return doc, work_dir, cached
 
 
+def _tune(doc: Document, out: Path, work_dir: Path, pdf: Path, cfg: Config) -> dict[str, Any]:
+    from .verify.tuner import tune_document
+
+    rep = tune_document(doc, out, work_dir, pdf, TextOptions.for_mode(cfg.mode, cfg.text_layout),
+                        cfg.limits, rounds=cfg.tune_rounds, render_dpi=cfg.render_dpi)
+    if rep.skipped:
+        LOG.info("%s: tuner skipped (%s)", pdf.name, rep.skipped)
+    else:
+        LOG.info("%s: tuned %d/%d blocks in %d rounds, %.2fs (breaks %d -> %d)", pdf.name,
+                 rep.blocks_changed, rep.blocks, rep.rounds, rep.seconds, rep.breaks_before,
+                 rep.breaks_after)
+    return rep.as_dict()
+
+
 def convert(pdf: Path, out: Path, cfg: Config, *, workers: int | None = None,
-            use_cache: bool = True) -> ConvertResult:
-    """Convert one PDF. Raises only if the whole document cannot be opened/written."""
+            use_cache: bool = True, tune: bool | None = None) -> ConvertResult:
+    """Convert one PDF. Raises only if the whole document cannot be opened/written.
+
+    ``tune``: run the fidelity tuner (M5) after writing; None = the mode's default.
+    """
     t0 = time.perf_counter()
     pdf = Path(pdf)
     res = ConvertResult(pdf=str(pdf), output=str(out))
     doc, work_dir, res.cached_stages = analyzed(pdf, cfg, workers=workers, use_cache=use_cache)
 
     rep = write_pptx(doc, out, work_dir, pdf, TextOptions.for_mode(cfg.mode, cfg.text_layout))
+    if (cfg.tune_enabled if tune is None else tune) and cfg.text_layout == "blocks":
+        res.tune = _tune(doc, out, work_dir, pdf, cfg)
     doc.stage = "build"
     _save_ir(work_dir, "build", doc)
 
@@ -182,7 +202,7 @@ def convert(pdf: Path, out: Path, cfg: Config, *, workers: int | None = None,
 def _convert_entry(pdf: Path, out: Path, cfg: Config, use_cache: bool) -> dict[str, Any]:
     log.setup(False)
     try:
-        return convert(pdf, out, cfg, workers=1, use_cache=use_cache).as_dict()
+        return convert(pdf, out, cfg, workers=1, use_cache=use_cache, tune=False).as_dict()
     except Exception as exc:  # a whole-document failure is recorded, not raised
         LOG.error("%s: conversion failed: %s", pdf.name, exc)
         return {"pdf": str(pdf), "output": str(out), "error": f"{type(exc).__name__}: {exc}"}
@@ -216,6 +236,8 @@ def convert_corpus(cfg: Config, *, only: list[str] | None = None, use_cache: boo
             r["name"] = e["name"]
             r["expected_pages"] = e["pages"]
             results[e["name"]] = r
+    if cfg.tune_enabled and cfg.text_layout == "blocks":
+        _tune_corpus(results, cfg)
     if check:
         _com_check(results)
     for name, r in results.items():
@@ -239,6 +261,25 @@ def convert_corpus(cfg: Config, *, only: list[str] | None = None, use_cache: boo
     (out_dir / "_summary.json").write_text(json.dumps(summary, indent=1, sort_keys=True),
                                            encoding="utf-8", newline="\n")
     return summary
+
+
+def _tune_corpus(results: dict[str, dict[str, Any]], cfg: Config) -> None:
+    """Tune every converted file here, one after the other, on one PowerPoint engine."""
+    for name in sorted(results):
+        r = results[name]
+        if "error" in r:
+            continue
+        try:
+            pdf, out = Path(r["pdf"]), Path(r["output"])
+            work_dir = cfg.work_dir / sha256_file(pdf)
+            doc = Document.from_json((work_dir / "ir_build.json").read_text(encoding="utf-8"))
+            r["tune"] = _tune(doc, out, work_dir, pdf, cfg)
+            _save_ir(work_dir, "build", doc)
+            r["seconds"] = round(r["seconds"] + r["tune"]["seconds"], 3)
+            r["seconds_per_page"] = round(r["seconds"] / max(r.get("pages") or 1, 1), 3)
+        except Exception as exc:  # the untuned deck stays
+            LOG.error("%s: tuning failed: %s", name, exc)
+            r["tune"] = {"skipped": f"{type(exc).__name__}: {exc}"}
 
 
 def _com_check(results: dict[str, dict[str, Any]]) -> None:

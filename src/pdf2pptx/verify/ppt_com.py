@@ -412,6 +412,21 @@ class _Worker:
         pres.SaveAs(os.path.normpath(str(p)), PP_SAVE_AS_PDF)
         return str(p)
 
+    def op_set_geometry(self, handle: str, slide: int,
+                        edits: list[tuple[str, float, float, float]]) -> int:
+        """Set (left, top, width) of named shapes in the open (in-memory) presentation.
+
+        Only used to measure the COM-edit alternative to rewriting the file (M5)."""
+        shapes = _RAW(self._slide(handle, slide)._oleobj_, "Slide", "Shapes")
+        n = 0
+        for name, left, top, width in edits:
+            shp = _RAW(shapes, "Shapes", "Item", name)
+            shp.Invoke(_dispid(shp, "Left"), 0, 4, False, float(left))  # DISPATCH_PROPERTYPUT
+            shp.Invoke(_dispid(shp, "Top"), 0, 4, False, float(top))
+            shp.Invoke(_dispid(shp, "Width"), 0, 4, False, float(width))
+            n += 1
+        return n
+
     def op_crash(self) -> None:  # test hook: simulate a worker that dies mid-call
         os._exit(17)
 
@@ -446,6 +461,13 @@ class _RawDispatch:
 _RAW = _RawDispatch()
 
 
+def _dispid(obj: Any, name: str) -> int:
+    key = ("Shape", name)
+    if key not in _RAW.ids:
+        _RAW.ids[key] = int(obj.GetIDsOfNames(name))
+    return _RAW.ids[key]
+
+
 def _collect_text_frame(tf2: Any, name: str, sid: int, out: list[TextShape],
                         offset: tuple[float, float] = (0.0, 0.0)) -> None:
     """Lines and words of one TextFrame2 (raw IDispatch)."""
@@ -465,7 +487,9 @@ def _collect_text_frame(tf2: Any, name: str, sid: int, out: list[TextShape],
         height = float(raw(line, "TextRange2", "BoundHeight"))
         y0 = top + oy
         y1 = y0 + height
-        if text.endswith(PARAGRAPH_ENDS) or li == n_lines:
+        # space-after belongs to the paragraph's last line only; a line that ends in a
+        # soft break (VT) is not a paragraph end
+        if text.endswith(PARAGRAPH_ENDS[:2]) or li == n_lines:
             pf = raw(line, "TextRange2", "ParagraphFormat")
             after = max(0.0, float(raw(pf, "ParagraphFormat2", "SpaceAfter")))
             if after and int(raw(pf, "ParagraphFormat2", "LineRuleAfter")):
@@ -880,6 +904,13 @@ class PowerPointEngine:
 
     def export_pdf(self, pres: PresInfo | str, out: Path) -> Path:
         return Path(self._call("export_pdf", self._h(pres), str(out)))
+
+    def set_geometry(self, pres: PresInfo | str, slide: int,
+                     edits: Sequence[tuple[str, float, float, float]]) -> int:
+        """COM edit of named shapes' left/top/width in memory (benchmark only, M5)."""
+        n: int = self._call("set_geometry", self._h(pres), int(slide),
+                            [(str(a), float(b), float(c), float(d)) for a, b, c, d in edits])
+        return n
 
     # convenience ---------------------------------------------------------
 

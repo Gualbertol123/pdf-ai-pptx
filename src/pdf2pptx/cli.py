@@ -18,7 +18,8 @@ NOT_YET = {
 
 def _config(args: argparse.Namespace) -> Config:
     overrides: dict[str, Any] = {}
-    for key in ("mode", "tier", "workers", "work_dir", "render_dpi", "text_layout"):
+    for key in ("mode", "tier", "workers", "work_dir", "out_dir", "render_dpi", "text_layout",
+                "tune", "tune_rounds"):
         v = getattr(args, key, None)
         if v is not None:
             overrides[key] = v
@@ -165,6 +166,8 @@ def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--config", help="path to pdf2pptx.toml")
     common.add_argument("--work-dir", dest="work_dir")
+    common.add_argument("--out-dir", dest="out_dir",
+                        help="output root (default out/); corpus files go to <out-dir>/corpus")
     common.add_argument("-v", "--verbose", action="store_true")
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -183,6 +186,11 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--text-layout", dest="text_layout", choices=("blocks", "lines"),
                    help="blocks (default): one box per text block; lines: the M2 "
                         "baseline, one box per line (for comparison)")
+    c.add_argument("--tune", action=argparse.BooleanOptionalAction, default=None,
+                   help="fidelity tuner: render in PowerPoint, compare, adjust, re-render "
+                        "(default: on for fidelity and balanced, off for editable)")
+    c.add_argument("--tune-rounds", dest="tune_rounds", type=int,
+                   help="max re-render rounds of the tuner (default 4)")
     c.set_defaults(func=cmd_convert)
 
     s = sub.add_parser("score", parents=[common], help="score a PPTX against its PDF")

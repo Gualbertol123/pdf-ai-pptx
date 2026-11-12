@@ -44,6 +44,8 @@ from .units import pct_to_ooxml, ppt_spacing, pt_to_centipoints, pt_to_emu
 TEXT_LAYOUTS = ("blocks", "lines")
 SINGLE_LINE = 1.2  # PowerPoint single line height / font size (measured, all fonts)
 BULLET_IMAGE_NOTE = "bullet_image"  # analyze/text.py marks images drawn as bullets
+TEXT_SHAPE_PREFIX = "TextBlock "  # + the block id: shape name of a block's text box
+LINE_BREAK = "\v"  # in TextRun.text: a forced line break (a:br), set by the tuner
 _ALIGN = {"left": "l", "center": "ctr", "right": "r", "justify": "just",
           "distributed": "dist"}
 
@@ -257,9 +259,11 @@ def _add_text(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]
                                      Emu(xf.d(y1 - y0)))
     if tb.rotation:
         shape.rotation = tb.rotation
+    baseline = "baseline_line" in tb.notes
+    if not baseline:  # the tuner maps PowerPoint's shapes back to blocks by name
+        shape.name = f"{TEXT_SHAPE_PREFIX}{tb.id}"
     tf = shape.text_frame
     tf.word_wrap = tb.wrap
-    baseline = "baseline_line" in tb.notes
     tf.auto_size = (MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE if opts.autofit == "shrink" and not baseline
                     else MSO_AUTO_SIZE.NONE)
     ml, mt, mr, mb = tb.margins
@@ -271,11 +275,20 @@ def _add_text(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]
             _para_props(p, para, xf, opts, slide, work_dir or Path("."), pictures or {})
         runs = para.runs if opts.keep_hyphens else _drop_hyphens(para)
         for ri, run in enumerate(runs):
-            text = _xml_safe(run.text)
+            # a forced break (VT) is a control char: split on it before _xml_safe drops it
+            text = LINE_BREAK.join(_xml_safe(t) for t in run.text.split(LINE_BREAK))
             if not text:
                 continue
             if run.field_type and not baseline:
                 _field(p, run, text, xf, f"{tb.id}/{pi}/{ri}")
+                continue
+            if LINE_BREAK in text and not baseline:  # forced line breaks (tuner, fidelity)
+                for k, piece in enumerate(text.split(LINE_BREAK)):
+                    if k:
+                        _run_props(etree.SubElement(etree.SubElement(p._p, qn("a:br")),
+                                                    qn("a:rPr")), run, xf)
+                    if piece:
+                        _add_run(p, run, piece, xf, shape, internal)
                 continue
             r = p.add_run()
             r.text = text
@@ -296,6 +309,17 @@ def _add_text(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]
                 r.hyperlink.address = run.hyperlink
             elif run.hyperlink:
                 internal.append((shape, int(run.hyperlink.split("=", 1)[1]) - 1))
+
+
+def _add_run(p: Any, run: TextRun, text: str, xf: _Xf, shape: Any,
+             internal: list[tuple[Any, int]]) -> None:
+    r = p.add_run()
+    r.text = text
+    _run_props(r._r.get_or_add_rPr(), run, xf)
+    if run.hyperlink and not run.hyperlink.startswith("#slide="):
+        r.hyperlink.address = run.hyperlink
+    elif run.hyperlink:
+        internal.append((shape, int(run.hyperlink.split("=", 1)[1]) - 1))
 
 
 def _path_cmds(shape: Shape, xf: _Xf) -> tuple[str, bool]:

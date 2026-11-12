@@ -39,7 +39,7 @@ KIND_COLORS = {
     "chart": "#0f9a9a", "equation": "#b0336b", "group": "#6b6b6b", "annotation": "#d1338a",
     "run": "#4f8fe0", "paragraph": "#3f7fd0", "glyph": "#999999",
 }
-SOURCE_COLORS = {"pdf": "#555f6d", "rule": "#1f6fd1", "ocr": "#e07b00"}
+SOURCE_COLORS = {"pdf": "#555f6d", "rule": "#1f6fd1", "ocr": "#e07b00", "tuner": "#c2185b"}
 EXTRA_COLORS = ["#c0392b", "#16a085", "#8e44ad", "#d35400", "#2c3e50", "#27ae60"]
 MAX_OVERLAYS = 4000
 JPEG_QUALITY = 82
@@ -151,6 +151,18 @@ def low_confidence_blocks(doc: Document | None, index: int,
     return sorted(out, key=lambda d: (d["confidence"], d["id"]))
 
 
+def tuner_adjustments(doc: Document | None, index: int) -> list[dict[str, Any]]:
+    """Elements of a page the fidelity tuner changed or could not fix (``tuner:`` notes)."""
+    if doc is None or index >= len(doc.pages):
+        return []
+    out = []
+    for e in doc.pages[index].elements:
+        notes = [n[len("tuner:"):] for n in e.notes if n.startswith("tuner:")]
+        if notes:
+            out.append({"id": e.id, "kind": e.kind, "source": e.source, "notes": notes})
+    return sorted(out, key=lambda d: d["id"])
+
+
 def _ppt_line_rects(layout: list[ppt_com.TextShape], page_wh: tuple[float, float],
                     slide_wh: tuple[float, float]) -> list[dict[str, Any]]:
     s, dx, dy = diff.page_rect_on_slide(*page_wh, *slide_wh)
@@ -197,6 +209,7 @@ def collect(pdf: Path, cfg: Config, *, pptx: Path | None = None,
                                  "data": data, "ppt_lines": [], "mismatches": []}
         entry["triage"] = to_dict(page_ir.triage) if page_ir else None
         entry["low_conf"] = low_confidence_blocks(doc, i)
+        entry["tuned"] = tuner_adjustments(doc, i)
         if i < len(pdf_imgs):
             entry["pdf_img"] = _data_uri(pdf_imgs[i])
         c = got.get(i)
@@ -488,6 +501,13 @@ def render_html(rep: dict[str, Any]) -> str:
             out.append(f'<details open><summary class="muted">{len(p["low_conf"])} '
                        f'low-confidence text blocks (&lt; {LOW_CONF_SHOWN})</summary>'
                        f'<ul class="mono">{items}</ul></details>')
+        if p.get("tuned"):
+            items = "".join(
+                f"<li><b>{_esc(t['id'])}</b> ({_esc(t['kind'])}, source {_esc(t['source'])}): "
+                f"<span class=muted>{_esc('; '.join(t['notes']))}</span></li>"
+                for t in p["tuned"])
+            out.append(f'<details open><summary class="muted">{len(p["tuned"])} tuner '
+                       f'adjustments</summary><ul class="mono">{items}</ul></details>')
         if p["mismatches"]:
             items = "".join(
                 f"<li>#{k + 1} ssim {m['ssim']:.3f}, bbox {m['bbox']}: "

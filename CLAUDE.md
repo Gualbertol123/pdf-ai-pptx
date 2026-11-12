@@ -18,6 +18,8 @@ the latest PROGRESS.md entry before starting a prompt.
 .venv\Scripts\pdf2pptx report a.pdf [b.pdf ...]          # -> out/report/<stem>.html (+ index.html)
 .venv\Scripts\pdf2pptx structure [--no-cache]          # paragraphs/levels/fonts vs synthetic truth
 .venv\Scripts\pdf2pptx convert ... --text-layout lines  # the M2 one-box-per-line baseline
+.venv\Scripts\pdf2pptx convert ... --tune/--no-tune --tune-rounds N   # M5 tuner (on: fidelity, balanced)
+.venv\Scripts\pdf2pptx convert --corpus --mode fidelity --out-dir out/fidelity  # then score --out-dir out/fidelity
 ```
 
 Scores go to `work/scores/<label>/` (git-ignored). `work/scores/truth` and `blank` hold
@@ -62,5 +64,11 @@ milestone must beat. Re-run them if missing.
   and the analyzer predicts positions with the same rounding. Details: PROGRESS.md M4.
 - The installed-font index is cached in `%LOCALAPPDATA%\pdf2pptx\cache\font_index.json`
   (`PDF2PPTX_FONT_INDEX` overrides); a changed font file is re-read automatically.
+- Tuner (M5): text boxes are named `TextBlock <block id>`; that is how COM layouts map
+  back to IR blocks. `spc` is not rounded (effect ≈ 0.955 × spc); 0.1 pt font sizes
+  are honoured. Do not use a ranged `ExportAsFixedFormat`: it crashed PowerPoint
+  after some decks. Whole-deck `export_pdf` is stable but stalls 7–10 s now and then.
+- Adding a field to a dataclass that is built positionally shifts the later
+  arguments silently (it broke the tuner's `Line`); build such objects with keywords.
 - While iterating on `analyze/`, run `convert`/`structure` with `--no-cache` (or bump
   `STAGE_VERSIONS["analyze"]`): the analyze cache key is the stage version only.
