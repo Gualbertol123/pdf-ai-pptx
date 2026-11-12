@@ -521,3 +521,35 @@ PowerPoint render + text layout per slide: median 0.144 s, mean 0.187 s, max 0.9
 Milestone 4: text understanding and fonts (paragraphs, lists, reading order). The
 target is ≥ 5× fewer text boxes per slide and word_recall ≥ 0.99 on born-digital
 pages, measured against this baseline.
+
+**Starting points for Prompt 4** (checked against the code at `85441ce`):
+
+- **Hook.** `pipeline.analyze()` is the identity (`STAGE_VERSIONS["analyze"] =
+  "identity-2.0"`). Bump that version when it starts emitting TextBlocks, or stale
+  `ir_analyze.json` caches are reused.
+- **Writer.** `build/writer._build_page` already writes `TextBlock` elements when a
+  page has any. It falls back to `build/lines.line_blocks()` (one box per line) only
+  when it has none. Keep that function: it becomes the "baseline line-per-box" path
+  that Prompt 4 must keep behind a flag. `_add_text` applies the block's `wrap`,
+  `margins`, `rotation` and the runs' font, size, colour, bold, italic, `spc` and
+  links. It writes no paragraph properties yet (alignment, indents, spacing,
+  bullets, level).
+- **Fonts.** `fonts/index.py` already has the installed-font registry,
+  `resolve_family()` (PDF name → Windows family), `advance_em()` (per-glyph advances)
+  and `first_baseline_offset()` (the measured `1.2 × winAscent/(winAscent+winDescent)`
+  rule). Prompt 4 adds `match.py` (width-profile matching) and `embed.py` next to it.
+- **Truth for the checks.** Each `truth.json` slide has `paragraphs`:
+  `{text, level, bullet: none|inherited|char|autonum, role, fonts, has_field}`.
+  That is enough for "paragraph count and bullet levels match on ≥ 95% of slides"
+  and "matched family = truth family on ≥ 95% of runs".
+- **Measuring.**
+  1. `convert --corpus --no-cache`, then `score --corpus --against out --label m4`.
+  2. Compare with `work/scores/baseline.json`.
+  3. `pdf2pptx report <pdf>` shows the new blocks (overlay kind `text_block`, source
+     `rule`) and PowerPoint's own line boxes, so wrap and line-break errors show up
+     as cyan vs blue mismatches.
+  4. The prompt asks for low-confidence blocks to be listed in the report: add that
+     to `report/debug_html.py` (`_page_overlays` already has every element's
+     `confidence`).
+- **Speed headroom.** Fewer boxes means fewer COM shape visits, so scoring should get
+  faster. A wrapped multi-line box costs one `Lines.Item` per line plus the words.
