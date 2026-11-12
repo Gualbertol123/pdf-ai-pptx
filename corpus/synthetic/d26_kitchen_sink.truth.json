@@ -1,0 +1,255 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "title",
+  "bullets",
+  "table",
+  "chart",
+  "shapes",
+  "images",
+  "theme_colors"
+ ],
+ "name": "d26_kitchen_sink",
+ "sections": [],
+ "slide_count": 1,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [
+    {
+     "categories": [
+      "Q1",
+      "Q2",
+      "Q3",
+      "Q4"
+     ],
+     "data_labels": false,
+     "has_legend": false,
+     "series": [
+      {
+       "name": "2026",
+       "values": [
+        12.0,
+        18.0,
+        15.0,
+        22.0
+       ]
+      }
+     ],
+     "type": "COLUMN_CLUSTERED"
+    }
+   ],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Dashboard"
+    },
+    {
+     "bullet": "char:•",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Visitors up 12%"
+    },
+    {
+     "bullet": "char:•",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Members up 8%"
+    },
+    {
+     "bullet": "char:•",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Costs flat"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "On track"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "!"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      36.0,
+      18.0,
+      900.0,
+      75.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      36.0,
+      79.2,
+      324.0,
+      266.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      36.0,
+      288.0,
+      324.0,
+      417.6
+     ],
+     "kind": "table",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      345.6,
+      79.2,
+      676.8,
+      309.6
+     ],
+     "kind": "chart",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      705.6,
+      79.2,
+      921.6,
+      295.2
+     ],
+     "kind": "picture",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      345.6,
+      338.4,
+      604.8,
+      424.8
+     ],
+     "kind": "auto_shape",
+     "preset": "roundRect",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      648.0,
+      331.2,
+      756.0,
+      439.2
+     ],
+     "kind": "auto_shape",
+     "preset": "ellipse",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      878.4,
+      475.2,
+      928.8,
+      525.6
+     ],
+     "kind": "picture",
+     "preset": null,
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "auto_shape": 2,
+    "chart": 1,
+    "picture": 2,
+    "table": 1,
+    "text_box": 2
+   },
+   "tables": [
+    {
+     "cells": [
+      [
+       "KPI",
+       "Value"
+      ],
+      [
+       "Events",
+       "48"
+      ],
+      [
+       "Schools",
+       "31"
+      ]
+     ],
+     "cols": 2,
+     "merges": [],
+     "rows": 3
+    }
+   ],
+   "text": "Dashboard\nVisitors up 12%\nMembers up 8%\nCosts flat\nKPI\nValue\nEvents\n48\nSchools\n31\nOn track\n!"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "2E75B6",
+   "accent2": "ED7D31",
+   "accent3": "A5A5A5",
+   "accent4": "FFC000",
+   "accent5": "5B9BD5",
+   "accent6": "70AD47",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d26_kitchen_sink.pptx"
+}

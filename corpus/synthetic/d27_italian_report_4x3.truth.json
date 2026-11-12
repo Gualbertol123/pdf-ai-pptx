@@ -1,0 +1,221 @@
+{
+ "aspect": "4:3",
+ "category": "synthetic_deck",
+ "features": [
+  "italian",
+  "table",
+  "chart",
+  "aspect_4_3"
+ ],
+ "name": "d27_italian_report_4x3",
+ "sections": [],
+ "slide_count": 2,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 720.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Title Only",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Visitatori per mese"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Nota: i dati di marzo includono la Settimana dei Musei e l'apertura straordinaria di venerdì sera."
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      36.0,
+      21.63,
+      684.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      50.4,
+      129.6,
+      669.6,
+      302.4
+     ],
+     "kind": "table",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      50.4,
+      331.2,
+      669.6,
+      439.2
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "placeholder": 1,
+    "table": 1,
+    "text_box": 1
+   },
+   "tables": [
+    {
+     "cells": [
+      [
+       "Mese",
+       "Ingressi",
+       "Variazione"
+      ],
+      [
+       "Gennaio",
+       "1.240",
+       "+4%"
+      ],
+      [
+       "Febbraio",
+       "1.385",
+       "+12%"
+      ],
+      [
+       "Marzo",
+       "1.910",
+       "+38%"
+      ]
+     ],
+     "cols": 3,
+     "merges": [],
+     "rows": 4
+    }
+   ],
+   "text": "Visitatori per mese\nMese\nIngressi\nVariazione\nGennaio\n1.240\n+4%\nFebbraio\n1.385\n+12%\nMarzo\n1.910\n+38%\nNota: i dati di marzo includono la Settimana dei Musei e l'apertura straordinaria di venerdì sera."
+  },
+  {
+   "charts": [
+    {
+     "categories": [
+      "Visite",
+      "Laboratori",
+      "Eventi"
+     ],
+     "data_labels": false,
+     "has_legend": true,
+     "series": [
+      {
+       "name": "2025",
+       "values": [
+        320.0,
+        140.0,
+        45.0
+       ]
+      },
+      {
+       "name": "2026",
+       "values": [
+        410.0,
+        190.0,
+        52.0
+       ]
+      }
+     ],
+     "type": "COLUMN_CLUSTERED"
+    }
+   ],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 1,
+   "layout": "Title Only",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Andamento delle attività"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      36.0,
+      21.63,
+      684.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      50.4,
+      115.2,
+      669.6,
+      489.6
+     ],
+     "kind": "chart",
+     "preset": null,
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "chart": 1,
+    "placeholder": 1
+   },
+   "tables": [],
+   "text": "Andamento delle attività"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d27_italian_report_4x3.pptx"
+}

@@ -1,0 +1,155 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "table",
+  "merged_cells"
+ ],
+ "name": "d08_table_merged",
+ "sections": [],
+ "slide_count": 1,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Title Only",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Budget overview"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      72.0,
+      122.4,
+      885.6,
+      424.8
+     ],
+     "kind": "table",
+     "preset": null,
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "placeholder": 1,
+    "table": 1
+   },
+   "tables": [
+    {
+     "cells": [
+      [
+       "Area",
+       "2025",
+       "",
+       "2026",
+       ""
+      ],
+      [
+       "",
+       "Plan",
+       "Actual",
+       "Plan",
+       "Actual"
+      ],
+      [
+       "Programs",
+       "120",
+       "118",
+       "135",
+       "—"
+      ],
+      [
+       "Staff",
+       "80",
+       "84",
+       "88",
+       "—"
+      ],
+      [
+       "Operations",
+       "30",
+       "27",
+       "32",
+       "—"
+      ],
+      [
+       "Total",
+       "230",
+       "229",
+       "255",
+       "—"
+      ]
+     ],
+     "cols": 5,
+     "merges": [
+      [
+       0,
+       0,
+       2,
+       1
+      ],
+      [
+       0,
+       1,
+       1,
+       2
+      ],
+      [
+       0,
+       3,
+       1,
+       2
+      ]
+     ],
+     "rows": 6
+    }
+   ],
+   "text": "Budget overview\nArea\n2025\n2026\nPlan\nActual\nPlan\nActual\nPrograms\n120\n118\n135\n—\nStaff\n80\n84\n88\n—\nOperations\n30\n27\n32\n—\nTotal\n230\n229\n255\n—"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d08_table_merged.pptx"
+}

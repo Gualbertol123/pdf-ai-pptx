@@ -1,0 +1,207 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "images",
+  "crop",
+  "caption",
+  "png_alpha"
+ ],
+ "name": "d13_images",
+ "sections": [],
+ "slide_count": 2,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Pictures"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Figure 1: The new reading room"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      43.2,
+      21.6,
+      907.2,
+      86.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      108.0,
+      489.6,
+      391.5
+     ],
+     "kind": "picture",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      532.8,
+      108.0,
+      748.8,
+      324.0
+     ],
+     "kind": "picture",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      792.0,
+      108.0,
+      900.0,
+      216.0
+     ],
+     "kind": "picture",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      403.2,
+      489.6,
+      439.2
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "picture": 3,
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "Pictures\nFigure 1: The new reading room"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 1,
+   "layout": "Picture with Caption",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Picture with caption"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "The courtyard after the restoration work."
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      188.17,
+      378.0,
+      764.17,
+      422.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      188.17,
+      48.25,
+      764.17,
+      372.25
+     ],
+     "kind": "picture",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      188.17,
+      422.63,
+      764.17,
+      486.0
+     ],
+     "kind": "placeholder",
+     "placeholder": "body",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "picture": 1,
+    "placeholder": 2
+   },
+   "tables": [],
+   "text": "Picture with caption\nThe courtyard after the restoration work."
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d13_images.pptx"
+}

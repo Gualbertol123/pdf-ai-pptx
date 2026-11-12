@@ -1,0 +1,128 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "table"
+ ],
+ "name": "d07_table_simple",
+ "sections": [],
+ "slide_count": 1,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Title Only",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Visitors by quarter"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      72.0,
+      129.6,
+      885.6,
+      381.6
+     ],
+     "kind": "table",
+     "preset": null,
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "placeholder": 1,
+    "table": 1
+   },
+   "tables": [
+    {
+     "cells": [
+      [
+       "Site",
+       "Q1",
+       "Q2",
+       "Q3",
+       "Q4"
+      ],
+      [
+       "North",
+       "2,219",
+       "1,028",
+       "1,736",
+       "2,617"
+      ],
+      [
+       "South",
+       "850",
+       "1,640",
+       "3,165",
+       "2,121"
+      ],
+      [
+       "East",
+       "3,500",
+       "802",
+       "3,938",
+       "1,659"
+      ],
+      [
+       "West",
+       "2,921",
+       "3,924",
+       "2,065",
+       "3,399"
+      ]
+     ],
+     "cols": 5,
+     "merges": [],
+     "rows": 5
+    }
+   ],
+   "text": "Visitors by quarter\nSite\nQ1\nQ2\nQ3\nQ4\nNorth\n2,219\n1,028\n1,736\n2,617\nSouth\n850\n1,640\n3,165\n2,121\nEast\n3,500\n802\n3,938\n1,659\nWest\n2,921\n3,924\n2,065\n3,399"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d07_table_simple.pptx"
+}

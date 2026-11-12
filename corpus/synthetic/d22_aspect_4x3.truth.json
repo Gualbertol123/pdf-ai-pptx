@@ -1,0 +1,266 @@
+{
+ "aspect": "4:3",
+ "category": "synthetic_deck",
+ "features": [
+  "aspect_4_3",
+  "bullets",
+  "shapes"
+ ],
+ "name": "d22_aspect_4x3",
+ "sections": [],
+ "slide_count": 3,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 720.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Title Slide",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "A 4:3 presentation"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Classic slide size"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      54.0,
+      167.75,
+      666.0,
+      283.5
+     ],
+     "kind": "placeholder",
+     "placeholder": "center_title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      108.0,
+      306.0,
+      612.0,
+      444.0
+     ],
+     "kind": "placeholder",
+     "placeholder": "subtitle",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "placeholder": 2
+   },
+   "tables": [],
+   "text": "A 4:3 presentation\nClassic slide size"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 1,
+   "layout": "Title and Content",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Key facts"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Founded in 1998"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "35 staff, 400 volunteers"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 1,
+     "role": "body",
+     "text": "Most of them part-time"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      36.0,
+      21.63,
+      684.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      36.0,
+      126.0,
+      684.0,
+      482.38
+     ],
+     "kind": "placeholder",
+     "placeholder": "object",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "placeholder": 2
+   },
+   "tables": [],
+   "text": "Key facts\nFounded in 1998\n35 staff, 400 volunteers\nMost of them part-time"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 2,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Mission"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Vision"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Values"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      57.6,
+      72.0,
+      331.2,
+      230.4
+     ],
+     "kind": "auto_shape",
+     "preset": "roundRect",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      388.8,
+      72.0,
+      662.4,
+      230.4
+     ],
+     "kind": "auto_shape",
+     "preset": "roundRect",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      223.2,
+      288.0,
+      496.8,
+      475.2
+     ],
+     "kind": "auto_shape",
+     "preset": "ellipse",
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "auto_shape": 3
+   },
+   "tables": [],
+   "text": "Mission\nVision\nValues"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d22_aspect_4x3.pptx"
+}

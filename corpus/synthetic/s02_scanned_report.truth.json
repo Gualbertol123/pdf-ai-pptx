@@ -1,0 +1,97 @@
+{
+ "category": "scanned",
+ "columns": 2,
+ "derived_from": "r01_report_two_column",
+ "features": [
+  "scanned",
+  "rotation",
+  "noise",
+  "jpeg"
+ ],
+ "name": "s02_scanned_report",
+ "pages": [
+  {
+   "figures": [],
+   "index": 0,
+   "paragraphs": [
+    {
+     "role": "title",
+     "text": "Community Reading Program"
+    },
+    {
+     "role": "heading",
+     "text": "1. Section 1"
+    },
+    {
+     "role": "body",
+     "text": "The program started in a single neighbourhood and now runs in five. Each site has a coordinator, a group of volunteers and a small budget for materials."
+    },
+    {
+     "role": "body",
+     "text": "Families told us that the most useful part was the evening sessions, because parents could join after work. We moved two thirds of the sessions to the evening in spring."
+    },
+    {
+     "role": "body",
+     "text": "Attendance grew steadily through the year. The largest increase came after the local library agreed to host the sessions and to promote them in its newsletter."
+    },
+    {
+     "role": "body",
+     "text": "We tracked three outcomes: reading level, attendance and parent participation. All three improved, although the change in reading level was smaller than planned."
+    },
+    {
+     "role": "heading",
+     "text": "2. Section 2"
+    },
+    {
+     "role": "body",
+     "text": "The program started in a single neighbourhood and now runs in five. Each site has a coordinator, a group of volunteers and a small budget for materials."
+    },
+    {
+     "role": "body",
+     "text": "Families told us that the most useful part was the evening sessions, because parents could join after work. We moved two thirds of the sessions to the evening in spring."
+    },
+    {
+     "role": "body",
+     "text": "Attendance grew steadily through the year. The largest increase came after the local library agreed to host the sessions and to promote them in its newsletter."
+    },
+    {
+     "role": "body",
+     "text": "We tracked three outcomes: reading level, attendance and parent participation. All three improved, although the change in reading level was smaller than planned."
+    },
+    {
+     "role": "heading",
+     "text": "3. Section 3"
+    },
+    {
+     "role": "body",
+     "text": "The program started in a single neighbourhood and now runs in five. Each site has a coordinator, a group of volunteers and a small budget for materials."
+    },
+    {
+     "role": "body",
+     "text": "Families told us that the most useful part was the evening sessions, because parents could join after work. We moved two thirds of the sessions to the evening in spring."
+    },
+    {
+     "role": "body",
+     "text": "Attendance grew steadily through the year. The largest increase came after the local library agreed to host the sessions and to promote them in its newsletter."
+    },
+    {
+     "role": "body",
+     "text": "We tracked three outcomes: reading level, attendance and parent participation. All three improved, although the change in reading level was smaller than planned."
+    },
+    {
+     "role": "footer",
+     "text": "Annual report 2026"
+    },
+    {
+     "role": "page_number",
+     "text": "1"
+    }
+   ],
+   "tables": []
+  }
+ ],
+ "scan_dpi": 200,
+ "slide_count": 1,
+ "source": "reportlab",
+ "truth_pptx": null
+}

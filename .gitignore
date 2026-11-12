@@ -1,0 +1,19 @@
+# environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+/build/
+/dist/
+
+# project working data
+/work/
+/tools/
+corpus/real/
+out/**/*.pptx
+/models/
+*.gguf
+*.onnx

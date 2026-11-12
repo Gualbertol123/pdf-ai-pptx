@@ -1,0 +1,203 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "chart",
+  "bar"
+ ],
+ "name": "d14_chart_bar",
+ "sections": [],
+ "slide_count": 2,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [
+    {
+     "categories": [
+      "North",
+      "South",
+      "East",
+      "West"
+     ],
+     "data_labels": false,
+     "has_legend": true,
+     "series": [
+      {
+       "name": "2024",
+       "values": [
+        41.0,
+        58.0,
+        26.0,
+        54.0
+       ]
+      },
+      {
+       "name": "2025",
+       "values": [
+        56.0,
+        58.0,
+        54.0,
+        21.0
+       ]
+      },
+      {
+       "name": "2026",
+       "values": [
+        46.0,
+        46.0,
+        11.0,
+        34.0
+       ]
+      }
+     ],
+     "type": "COLUMN_CLUSTERED"
+    }
+   ],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Title Only",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Visitors by site"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      108.0,
+      885.6,
+      504.0
+     ],
+     "kind": "chart",
+     "preset": null,
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "chart": 1,
+    "placeholder": 1
+   },
+   "tables": [],
+   "text": "Visitors by site"
+  },
+  {
+   "charts": [
+    {
+     "categories": [
+      "Programs",
+      "Staff",
+      "Operations",
+      "Outreach"
+     ],
+     "data_labels": true,
+     "has_legend": false,
+     "series": [
+      {
+       "name": "Budget",
+       "values": [
+        52.0,
+        31.0,
+        11.0,
+        6.0
+       ]
+      }
+     ],
+     "type": "BAR_CLUSTERED"
+    }
+   ],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 1,
+   "layout": "Title Only",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Share of budget"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      108.0,
+      885.6,
+      504.0
+     ],
+     "kind": "chart",
+     "preset": null,
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "chart": 1,
+    "placeholder": 1
+   },
+   "tables": [],
+   "text": "Share of budget"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d14_chart_bar.pptx"
+}

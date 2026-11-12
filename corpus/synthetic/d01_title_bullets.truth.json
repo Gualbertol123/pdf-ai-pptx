@@ -1,0 +1,276 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "title",
+  "bullets",
+  "placeholders"
+ ],
+ "name": "d01_title_bullets",
+ "sections": [],
+ "slide_count": 3,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Title Slide",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Annual Review 2026"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Programs, people and the year ahead"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      72.0,
+      167.75,
+      888.0,
+      283.5
+     ],
+     "kind": "placeholder",
+     "placeholder": "center_title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      144.0,
+      306.0,
+      816.0,
+      444.0
+     ],
+     "kind": "placeholder",
+     "placeholder": "subtitle",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "placeholder": 2
+   },
+   "tables": [],
+   "text": "Annual Review 2026\nPrograms, people and the year ahead"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 1,
+   "layout": "Title and Content",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "What we achieved"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Served 4,200 families across three districts"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Opened two new community sites"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Trained 180 new volunteers"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Cut average waiting time from 12 to 5 days"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      48.0,
+      126.0,
+      912.0,
+      482.38
+     ],
+     "kind": "placeholder",
+     "placeholder": "object",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "placeholder": 2
+   },
+   "tables": [],
+   "text": "What we achieved\nServed 4,200 families across three districts\nOpened two new community sites\nTrained 180 new volunteers\nCut average waiting time from 12 to 5 days"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 2,
+   "layout": "Title and Content",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Priorities for next year"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Grow the after-school program"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Strengthen partnerships with local schools"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Launch a monthly giving program"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      48.0,
+      126.0,
+      912.0,
+      482.38
+     ],
+     "kind": "placeholder",
+     "placeholder": "object",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "placeholder": 2
+   },
+   "tables": [],
+   "text": "Priorities for next year\nGrow the after-school program\nStrengthen partnerships with local schools\nLaunch a monthly giving program"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d01_title_bullets.pptx"
+}

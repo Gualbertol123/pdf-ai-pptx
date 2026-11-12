@@ -1,0 +1,230 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "hyperlinks",
+  "internal_links"
+ ],
+ "name": "d19_hyperlinks",
+ "sections": [],
+ "slide_count": 2,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [
+    "https://example.org/",
+    "https://docs.example.org/guide",
+    "mailto:info@example.org",
+    "slide2.xml"
+   ],
+   "index": 0,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Useful links"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Website: example.org"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Docs: docs.example.org/guide"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Write to us: info@example.org"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Go to details"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      43.2,
+      21.6,
+      907.2,
+      86.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      115.2,
+      849.6,
+      331.2
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      360.0,
+      273.6,
+      432.0
+     ],
+     "kind": "auto_shape",
+     "preset": "roundRect",
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "auto_shape": 1,
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "Useful links\nWebsite: example.org\nDocs: docs.example.org/guide\nWrite to us: info@example.org\nGo to details"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [
+    "https://example.org/details"
+   ],
+   "index": 1,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Details"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Our programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Open site"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      43.2,
+      21.6,
+      907.2,
+      86.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      115.2,
+      849.6,
+      259.2
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      360.0,
+      273.6,
+      432.0
+     ],
+     "kind": "auto_shape",
+     "preset": "rect",
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "auto_shape": 1,
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "Details\nOur programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner.\nOpen site"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d19_hyperlinks.pptx"
+}

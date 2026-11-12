@@ -1,0 +1,290 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "bullets",
+  "multilevel",
+  "numbering"
+ ],
+ "name": "d02_multilevel_bullets",
+ "sections": [],
+ "slide_count": 2,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Title and Content",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Project structure"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Research"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 1,
+     "role": "body",
+     "text": "Interviews with 40 partners"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 2,
+     "role": "body",
+     "text": "Transcribed and coded"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 1,
+     "role": "body",
+     "text": "Survey of 1,100 visitors"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Design"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 1,
+     "role": "body",
+     "text": "Three prototypes"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 2,
+     "role": "body",
+     "text": "Paper prototype"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 3,
+     "role": "body",
+     "text": "Tested with staff"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Delivery"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      48.0,
+      126.0,
+      912.0,
+      482.38
+     ],
+     "kind": "placeholder",
+     "placeholder": "object",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "placeholder": 2
+   },
+   "tables": [],
+   "text": "Project structure\nResearch\nInterviews with 40 partners\nTranscribed and coded\nSurvey of 1,100 visitors\nDesign\nThree prototypes\nPaper prototype\nTested with staff\nDelivery"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 1,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri Light"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Steps to apply"
+    },
+    {
+     "bullet": "autonum:arabicPeriod",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Read the guidelines"
+    },
+    {
+     "bullet": "autonum:arabicPeriod",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Check eligibility"
+    },
+    {
+     "bullet": "autonum:alphaLcParenR",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 1,
+     "role": "text",
+     "text": "Budget and timeline"
+    },
+    {
+     "bullet": "autonum:alphaLcParenR",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 1,
+     "role": "text",
+     "text": "Partner letters"
+    },
+    {
+     "bullet": "autonum:arabicPeriod",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Submit before the deadline"
+    },
+    {
+     "bullet": "char:–",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Wait for the decision"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      57.6,
+      28.8,
+      849.6,
+      100.8
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      72.0,
+      115.2,
+      792.0,
+      439.2
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "Steps to apply\nRead the guidelines\nCheck eligibility\nBudget and timeline\nPartner letters\nSubmit before the deadline\nWait for the decision"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d02_multilevel_bullets.pptx"
+}

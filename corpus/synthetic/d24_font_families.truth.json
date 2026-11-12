@@ -1,0 +1,250 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "fonts",
+  "serif",
+  "mono"
+ ],
+ "name": "d24_font_families",
+ "sections": [],
+ "slide_count": 1,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Font families"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Arial"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Arial: The quick brown fox jumps over the lazy dog"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Times New Roman"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Times New Roman: The quick brown fox jumps over the lazy dog"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Georgia"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Georgia: The quick brown fox jumps over the lazy dog"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Verdana"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Verdana: The quick brown fox jumps over the lazy dog"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Consolas"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Consolas: The quick brown fox jumps over the lazy dog"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Segoe UI"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Segoe UI: The quick brown fox jumps over the lazy dog"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Cambria"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Cambria: The quick brown fox jumps over the lazy dog"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Calibri: The quick brown fox jumps over the lazy dog"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      43.2,
+      21.6,
+      907.2,
+      86.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      100.8,
+      489.6,
+      187.2
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      504.0,
+      100.8,
+      936.0,
+      187.2
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      198.0,
+      489.6,
+      284.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      504.0,
+      198.0,
+      936.0,
+      284.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      295.2,
+      489.6,
+      381.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      504.0,
+      295.2,
+      936.0,
+      381.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      392.4,
+      489.6,
+      478.8
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      504.0,
+      392.4,
+      936.0,
+      478.8
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "text_box": 9
+   },
+   "tables": [],
+   "text": "Font families\nArial: The quick brown fox jumps over the lazy dog\nTimes New Roman: The quick brown fox jumps over the lazy dog\nGeorgia: The quick brown fox jumps over the lazy dog\nVerdana: The quick brown fox jumps over the lazy dog\nConsolas: The quick brown fox jumps over the lazy dog\nSegoe UI: The quick brown fox jumps over the lazy dog\nCambria: The quick brown fox jumps over the lazy dog\nCalibri: The quick brown fox jumps over the lazy dog"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d24_font_families.pptx"
+}

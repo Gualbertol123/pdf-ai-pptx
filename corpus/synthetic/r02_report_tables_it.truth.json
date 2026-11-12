@@ -1,0 +1,125 @@
+{
+ "category": "report",
+ "columns": 1,
+ "features": [
+  "table",
+  "whitespace_table",
+  "italian",
+  "caption"
+ ],
+ "name": "r02_report_tables_it",
+ "pages": [
+  {
+   "figures": [],
+   "index": 0,
+   "paragraphs": [
+    {
+     "role": "title",
+     "text": "Relazione annuale: i numeri"
+    },
+    {
+     "role": "body",
+     "text": "Il progetto è nato in un solo quartiere e oggi è attivo in cinque. Ogni sede ha un referente, un gruppo di volontari e un piccolo budget per i materiali."
+    },
+    {
+     "role": "caption",
+     "text": "Tabella 1. Partecipanti per sede"
+    },
+    {
+     "role": "body",
+     "text": "Le famiglie ci hanno detto che la parte più utile erano gli incontri serali, perché i genitori potevano partecipare dopo il lavoro."
+    },
+    {
+     "role": "caption",
+     "text": "Tabella 2. Costi (migliaia di euro), senza linee"
+    },
+    {
+     "role": "body",
+     "text": "La partecipazione è cresciuta per tutto l'anno, soprattutto dopo che la biblioteca comunale ha accettato di ospitare gli incontri."
+    },
+    {
+     "role": "footer",
+     "text": "Annual report 2026"
+    },
+    {
+     "role": "page_number",
+     "text": "1"
+    }
+   ],
+   "tables": [
+    {
+     "cells": [
+      [
+       "Sede",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      [
+       "Centro",
+       "120",
+       "145",
+       "171"
+      ],
+      [
+       "Nord",
+       "80",
+       "96",
+       "110"
+      ],
+      [
+       "Sud",
+       "64",
+       "70",
+       "88"
+      ],
+      [
+       "Totale",
+       "264",
+       "311",
+       "369"
+      ]
+     ],
+     "cols": 4,
+     "rows": 5,
+     "ruled": true
+    },
+    {
+     "cells": [
+      [
+       "Voce",
+       "Previsto",
+       "Effettivo"
+      ],
+      [
+       "Personale",
+       "88",
+       "91"
+      ],
+      [
+       "Materiali",
+       "12",
+       "10"
+      ],
+      [
+       "Affitti",
+       "24",
+       "24"
+      ],
+      [
+       "Comunicazione",
+       "6",
+       "7"
+      ]
+     ],
+     "cols": 3,
+     "rows": 5,
+     "ruled": false
+    }
+   ]
+  }
+ ],
+ "slide_count": 1,
+ "source": "reportlab",
+ "truth_pptx": null
+}

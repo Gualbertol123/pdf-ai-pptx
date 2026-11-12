@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdf2pptx"
+version = "0.1.0"
+description = "Local, offline PDF to native, editable PPTX converter with a PowerPoint check-and-correct loop"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "python-pptx>=1.0.2",
+    "lxml>=5.2",
+    "pypdfium2>=4.30",
+    "pdfplumber>=0.11",
+    "pywin32>=306; sys_platform == 'win32'",
+    "fonttools>=4.53",
+    "opencv-python-headless>=4.10",
+    "scikit-image>=0.24",
+    "numpy>=1.26",
+    "pillow>=10.4",
+    "reportlab>=4.2",
+    "psutil>=6.0",
+    "rapidfuzz>=3.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "ruff>=0.6", "mypy>=1.11"]
+
+[project.scripts]
+pdf2pptx = "pdf2pptx.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "powerpoint: needs PowerPoint installed (COM); skipped otherwise",
+    "corpus: needs the generated corpus (pdf2pptx corpus build)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["work", "tools", "corpus", "out"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # Italian / typographic characters are intentional
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/pdf2pptx/ir.py", "src/pdf2pptx/build/units.py"]

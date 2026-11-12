@@ -1,0 +1,436 @@
+{
+ "files": [
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "title",
+    "bullets",
+    "placeholders"
+   ],
+   "name": "d01_title_bullets",
+   "pages": 3,
+   "pdf": "synthetic/d01_title_bullets.pdf",
+   "truth": "synthetic/d01_title_bullets.truth.json",
+   "truth_pptx": "synthetic/d01_title_bullets.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "bullets",
+    "multilevel",
+    "numbering"
+   ],
+   "name": "d02_multilevel_bullets",
+   "pages": 2,
+   "pdf": "synthetic/d02_multilevel_bullets.pdf",
+   "truth": "synthetic/d02_multilevel_bullets.truth.json",
+   "truth_pptx": "synthetic/d02_multilevel_bullets.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "two_column",
+    "placeholders"
+   ],
+   "name": "d03_two_columns",
+   "pages": 2,
+   "pdf": "synthetic/d03_two_columns.pdf",
+   "truth": "synthetic/d03_two_columns.truth.json",
+   "truth_pptx": "synthetic/d03_two_columns.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "multi_column",
+    "wrapping"
+   ],
+   "name": "d04_three_columns",
+   "pages": 1,
+   "pdf": "synthetic/d04_three_columns.pdf",
+   "truth": "synthetic/d04_three_columns.truth.json",
+   "truth_pptx": "synthetic/d04_three_columns.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "mixed_fonts",
+    "mixed_sizes",
+    "colors",
+    "superscript"
+   ],
+   "name": "d05_mixed_runs",
+   "pages": 1,
+   "pdf": "synthetic/d05_mixed_runs.pdf",
+   "truth": "synthetic/d05_mixed_runs.truth.json",
+   "truth_pptx": "synthetic/d05_mixed_runs.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "italian",
+    "accents",
+    "bullets"
+   ],
+   "name": "d06_italian_text",
+   "pages": 2,
+   "pdf": "synthetic/d06_italian_text.pdf",
+   "truth": "synthetic/d06_italian_text.truth.json",
+   "truth_pptx": "synthetic/d06_italian_text.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "table"
+   ],
+   "name": "d07_table_simple",
+   "pages": 1,
+   "pdf": "synthetic/d07_table_simple.pdf",
+   "truth": "synthetic/d07_table_simple.truth.json",
+   "truth_pptx": "synthetic/d07_table_simple.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "table",
+    "merged_cells"
+   ],
+   "name": "d08_table_merged",
+   "pages": 1,
+   "pdf": "synthetic/d08_table_merged.pdf",
+   "truth": "synthetic/d08_table_merged.truth.json",
+   "truth_pptx": "synthetic/d08_table_merged.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "shapes",
+    "preset",
+    "shape_text"
+   ],
+   "name": "d09_shapes_basic",
+   "pages": 1,
+   "pdf": "synthetic/d09_shapes_basic.pdf",
+   "truth": "synthetic/d09_shapes_basic.truth.json",
+   "truth_pptx": "synthetic/d09_shapes_basic.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "shapes",
+    "arrows",
+    "chevron",
+    "rotation"
+   ],
+   "name": "d10_arrows_chevrons",
+   "pages": 1,
+   "pdf": "synthetic/d10_arrows_chevrons.pdf",
+   "truth": "synthetic/d10_arrows_chevrons.truth.json",
+   "truth_pptx": "synthetic/d10_arrows_chevrons.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "connectors",
+    "arrowheads",
+    "shapes"
+   ],
+   "name": "d11_connectors",
+   "pages": 1,
+   "pdf": "synthetic/d11_connectors.pdf",
+   "truth": "synthetic/d11_connectors.truth.json",
+   "truth_pptx": "synthetic/d11_connectors.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "gradient",
+    "transparency",
+    "overlap"
+   ],
+   "name": "d12_gradients_alpha",
+   "pages": 1,
+   "pdf": "synthetic/d12_gradients_alpha.pdf",
+   "truth": "synthetic/d12_gradients_alpha.truth.json",
+   "truth_pptx": "synthetic/d12_gradients_alpha.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "images",
+    "crop",
+    "caption",
+    "png_alpha"
+   ],
+   "name": "d13_images",
+   "pages": 2,
+   "pdf": "synthetic/d13_images.pdf",
+   "truth": "synthetic/d13_images.truth.json",
+   "truth_pptx": "synthetic/d13_images.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "chart",
+    "bar"
+   ],
+   "name": "d14_chart_bar",
+   "pages": 2,
+   "pdf": "synthetic/d14_chart_bar.pdf",
+   "truth": "synthetic/d14_chart_bar.truth.json",
+   "truth_pptx": "synthetic/d14_chart_bar.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "chart",
+    "line"
+   ],
+   "name": "d15_chart_line",
+   "pages": 1,
+   "pdf": "synthetic/d15_chart_line.pdf",
+   "truth": "synthetic/d15_chart_line.truth.json",
+   "truth_pptx": "synthetic/d15_chart_line.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "chart",
+    "pie",
+    "data_labels"
+   ],
+   "name": "d16_chart_pie",
+   "pages": 1,
+   "pdf": "synthetic/d16_chart_pie.pdf",
+   "truth": "synthetic/d16_chart_pie.truth.json",
+   "truth_pptx": "synthetic/d16_chart_pie.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "repeated_footer",
+    "logo",
+    "slide_number",
+    "master_candidate"
+   ],
+   "name": "d17_footer_logo_number",
+   "pages": 5,
+   "pdf": "synthetic/d17_footer_logo_number.pdf",
+   "truth": "synthetic/d17_footer_logo_number.truth.json",
+   "truth_pptx": "synthetic/d17_footer_logo_number.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "build_sequence"
+   ],
+   "name": "d18_buildup",
+   "pages": 5,
+   "pdf": "synthetic/d18_buildup.pdf",
+   "truth": "synthetic/d18_buildup.truth.json",
+   "truth_pptx": "synthetic/d18_buildup.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "hyperlinks",
+    "internal_links"
+   ],
+   "name": "d19_hyperlinks",
+   "pages": 2,
+   "pdf": "synthetic/d19_hyperlinks.pdf",
+   "truth": "synthetic/d19_hyperlinks.truth.json",
+   "truth_pptx": "synthetic/d19_hyperlinks.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "speaker_notes"
+   ],
+   "name": "d20_speaker_notes",
+   "pages": 3,
+   "pdf": "synthetic/d20_speaker_notes.pdf",
+   "truth": "synthetic/d20_speaker_notes.truth.json",
+   "truth_pptx": "synthetic/d20_speaker_notes.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "sections"
+   ],
+   "name": "d21_sections",
+   "pages": 6,
+   "pdf": "synthetic/d21_sections.pdf",
+   "truth": "synthetic/d21_sections.truth.json",
+   "truth_pptx": "synthetic/d21_sections.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "aspect_4_3",
+    "bullets",
+    "shapes"
+   ],
+   "name": "d22_aspect_4x3",
+   "pages": 3,
+   "pdf": "synthetic/d22_aspect_4x3.pdf",
+   "truth": "synthetic/d22_aspect_4x3.truth.json",
+   "truth_pptx": "synthetic/d22_aspect_4x3.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "justified",
+    "line_spacing",
+    "space_before_after"
+   ],
+   "name": "d23_long_paragraphs",
+   "pages": 2,
+   "pdf": "synthetic/d23_long_paragraphs.pdf",
+   "truth": "synthetic/d23_long_paragraphs.truth.json",
+   "truth_pptx": "synthetic/d23_long_paragraphs.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "fonts",
+    "serif",
+    "mono"
+   ],
+   "name": "d24_font_families",
+   "pages": 1,
+   "pdf": "synthetic/d24_font_families.pdf",
+   "truth": "synthetic/d24_font_families.truth.json",
+   "truth_pptx": "synthetic/d24_font_families.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "background",
+    "dark",
+    "theme_colors"
+   ],
+   "name": "d25_dark_background",
+   "pages": 2,
+   "pdf": "synthetic/d25_dark_background.pdf",
+   "truth": "synthetic/d25_dark_background.truth.json",
+   "truth_pptx": "synthetic/d25_dark_background.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "title",
+    "bullets",
+    "table",
+    "chart",
+    "shapes",
+    "images",
+    "theme_colors"
+   ],
+   "name": "d26_kitchen_sink",
+   "pages": 1,
+   "pdf": "synthetic/d26_kitchen_sink.pdf",
+   "truth": "synthetic/d26_kitchen_sink.truth.json",
+   "truth_pptx": "synthetic/d26_kitchen_sink.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "italian",
+    "table",
+    "chart",
+    "aspect_4_3"
+   ],
+   "name": "d27_italian_report_4x3",
+   "pages": 2,
+   "pdf": "synthetic/d27_italian_report_4x3.pdf",
+   "truth": "synthetic/d27_italian_report_4x3.truth.json",
+   "truth_pptx": "synthetic/d27_italian_report_4x3.pptx"
+  },
+  {
+   "category": "synthetic_deck",
+   "features": [
+    "rotation",
+    "rotated_text",
+    "vertical_text",
+    "pdf_outlined_text"
+   ],
+   "name": "d28_rotated_text",
+   "pages": 1,
+   "pdf": "synthetic/d28_rotated_text.pdf",
+   "truth": "synthetic/d28_rotated_text.truth.json",
+   "truth_pptx": "synthetic/d28_rotated_text.pptx"
+  },
+  {
+   "category": "report",
+   "features": [
+    "multi_column",
+    "headings",
+    "footer",
+    "page_number"
+   ],
+   "name": "r01_report_two_column",
+   "pages": 1,
+   "pdf": "synthetic/r01_report_two_column.pdf",
+   "truth": "synthetic/r01_report_two_column.truth.json",
+   "truth_pptx": null
+  },
+  {
+   "category": "report",
+   "features": [
+    "table",
+    "whitespace_table",
+    "italian",
+    "caption"
+   ],
+   "name": "r02_report_tables_it",
+   "pages": 1,
+   "pdf": "synthetic/r02_report_tables_it.pdf",
+   "truth": "synthetic/r02_report_tables_it.truth.json",
+   "truth_pptx": null
+  },
+  {
+   "category": "report",
+   "features": [
+    "figure",
+    "caption",
+    "image"
+   ],
+   "name": "r03_report_figure",
+   "pages": 1,
+   "pdf": "synthetic/r03_report_figure.pdf",
+   "truth": "synthetic/r03_report_figure.truth.json",
+   "truth_pptx": null
+  },
+  {
+   "category": "scanned",
+   "derived_from": "d06_italian_text",
+   "features": [
+    "scanned",
+    "rotation",
+    "noise",
+    "jpeg"
+   ],
+   "name": "s01_scanned_deck_it",
+   "pages": 2,
+   "pdf": "synthetic/s01_scanned_deck_it.pdf",
+   "truth": "synthetic/s01_scanned_deck_it.truth.json",
+   "truth_pptx": "synthetic/d06_italian_text.pptx"
+  },
+  {
+   "category": "scanned",
+   "derived_from": "r01_report_two_column",
+   "features": [
+    "scanned",
+    "rotation",
+    "noise",
+    "jpeg"
+   ],
+   "name": "s02_scanned_report",
+   "pages": 1,
+   "pdf": "synthetic/s02_scanned_report.pdf",
+   "truth": "synthetic/s02_scanned_report.truth.json",
+   "truth_pptx": null
+  }
+ ],
+ "version": 1
+}

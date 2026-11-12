@@ -1,0 +1,169 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "multi_column",
+  "wrapping"
+ ],
+ "name": "d04_three_columns",
+ "sections": [],
+ "slide_count": 1,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Three program areas"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Education"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Our programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Health"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Our programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Housing"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Our programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      43.2,
+      28.8,
+      907.2,
+      93.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      43.2,
+      108.0,
+      316.8,
+      482.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      338.4,
+      108.0,
+      612.0,
+      482.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      633.6,
+      108.0,
+      907.2,
+      482.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "text_box": 4
+   },
+   "tables": [],
+   "text": "Three program areas\nEducation\nOur programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner.\nHealth\nOur programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner.\nHousing\nOur programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d04_three_columns.pptx"
+}

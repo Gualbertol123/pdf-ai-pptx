@@ -1,0 +1,680 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "repeated_footer",
+  "logo",
+  "slide_number",
+  "master_candidate"
+ ],
+ "name": "d17_footer_logo_number",
+ "sections": [],
+ "slide_count": 5,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": true,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Title and Content",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Introduction"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Introduction: key point one"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Introduction: key point two"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Community Report 2026 · Confidential"
+    },
+    {
+     "bullet": "none",
+     "fonts": [],
+     "has_field": true,
+     "level": 0,
+     "role": "text",
+     "text": "1"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      48.0,
+      126.0,
+      912.0,
+      482.38
+     ],
+     "kind": "placeholder",
+     "placeholder": "object",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      889.2,
+      14.4,
+      943.2,
+      68.4
+     ],
+     "kind": "picture",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      43.2,
+      500.4,
+      619.2,
+      525.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      856.8,
+      500.4,
+      914.4,
+      525.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "picture": 1,
+    "placeholder": 2,
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "Introduction\nIntroduction: key point one\nIntroduction: key point two\nCommunity Report 2026 · Confidential\n1"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": true,
+   "hyperlinks": [],
+   "index": 1,
+   "layout": "Title and Content",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Context"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Context: key point one"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Context: key point two"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Community Report 2026 · Confidential"
+    },
+    {
+     "bullet": "none",
+     "fonts": [],
+     "has_field": true,
+     "level": 0,
+     "role": "text",
+     "text": "2"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      48.0,
+      126.0,
+      912.0,
+      482.38
+     ],
+     "kind": "placeholder",
+     "placeholder": "object",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      889.2,
+      14.4,
+      943.2,
+      68.4
+     ],
+     "kind": "picture",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      43.2,
+      500.4,
+      619.2,
+      525.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      856.8,
+      500.4,
+      914.4,
+      525.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "picture": 1,
+    "placeholder": 2,
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "Context\nContext: key point one\nContext: key point two\nCommunity Report 2026 · Confidential\n2"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": true,
+   "hyperlinks": [],
+   "index": 2,
+   "layout": "Title and Content",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Approach"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Approach: key point one"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Approach: key point two"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Community Report 2026 · Confidential"
+    },
+    {
+     "bullet": "none",
+     "fonts": [],
+     "has_field": true,
+     "level": 0,
+     "role": "text",
+     "text": "3"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      48.0,
+      126.0,
+      912.0,
+      482.38
+     ],
+     "kind": "placeholder",
+     "placeholder": "object",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      889.2,
+      14.4,
+      943.2,
+      68.4
+     ],
+     "kind": "picture",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      43.2,
+      500.4,
+      619.2,
+      525.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      856.8,
+      500.4,
+      914.4,
+      525.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "picture": 1,
+    "placeholder": 2,
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "Approach\nApproach: key point one\nApproach: key point two\nCommunity Report 2026 · Confidential\n3"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": true,
+   "hyperlinks": [],
+   "index": 3,
+   "layout": "Title and Content",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Results"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Results: key point one"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Results: key point two"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Community Report 2026 · Confidential"
+    },
+    {
+     "bullet": "none",
+     "fonts": [],
+     "has_field": true,
+     "level": 0,
+     "role": "text",
+     "text": "4"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      48.0,
+      126.0,
+      912.0,
+      482.38
+     ],
+     "kind": "placeholder",
+     "placeholder": "object",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      889.2,
+      14.4,
+      943.2,
+      68.4
+     ],
+     "kind": "picture",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      43.2,
+      500.4,
+      619.2,
+      525.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      856.8,
+      500.4,
+      914.4,
+      525.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "picture": 1,
+    "placeholder": 2,
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "Results\nResults: key point one\nResults: key point two\nCommunity Report 2026 · Confidential\n4"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": true,
+   "hyperlinks": [],
+   "index": 4,
+   "layout": "Title and Content",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Next steps"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Next steps: key point one"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Next steps: key point two"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Community Report 2026 · Confidential"
+    },
+    {
+     "bullet": "none",
+     "fonts": [],
+     "has_field": true,
+     "level": 0,
+     "role": "text",
+     "text": "5"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      48.0,
+      126.0,
+      912.0,
+      482.38
+     ],
+     "kind": "placeholder",
+     "placeholder": "object",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      889.2,
+      14.4,
+      943.2,
+      68.4
+     ],
+     "kind": "picture",
+     "preset": null,
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      43.2,
+      500.4,
+      619.2,
+      525.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      856.8,
+      500.4,
+      914.4,
+      525.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "picture": 1,
+    "placeholder": 2,
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "Next steps\nNext steps: key point one\nNext steps: key point two\nCommunity Report 2026 · Confidential\n5"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d17_footer_logo_number.pptx"
+}

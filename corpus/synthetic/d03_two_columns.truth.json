@@ -1,0 +1,264 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "two_column",
+  "placeholders"
+ ],
+ "name": "d03_two_columns",
+ "sections": [],
+ "slide_count": 2,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Two Content",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "title",
+     "text": "Before and after"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Paper forms"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Phone queue"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Weekly reports by hand"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Online form"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Text reminders"
+    },
+    {
+     "bullet": "inherited",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "body",
+     "text": "Live dashboard"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      48.0,
+      21.63,
+      912.0,
+      111.63
+     ],
+     "kind": "placeholder",
+     "placeholder": "title",
+     "preset": null,
+     "role": "title",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      48.0,
+      126.0,
+      472.0,
+      482.38
+     ],
+     "kind": "placeholder",
+     "placeholder": "object",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      488.0,
+      126.0,
+      912.0,
+      482.38
+     ],
+     "kind": "placeholder",
+     "placeholder": "object",
+     "preset": null,
+     "role": "body",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "placeholder": 3
+   },
+   "tables": [],
+   "text": "Before and after\nPaper forms\nPhone queue\nWeekly reports by hand\nOnline form\nText reminders\nLive dashboard"
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 1,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Two columns of running text"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Our programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Our programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Our programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Our programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      50.4,
+      28.8,
+      914.4,
+      93.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      50.4,
+      108.0,
+      460.8,
+      482.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      496.8,
+      108.0,
+      907.2,
+      482.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "text_box": 3
+   },
+   "tables": [],
+   "text": "Two columns of running text\nOur programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner.\nOur programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner.\nOur programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner.\nOur programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d03_two_columns.pptx"
+}

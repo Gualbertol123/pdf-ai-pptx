@@ -1,0 +1,58 @@
+{
+ "category": "report",
+ "columns": 1,
+ "features": [
+  "figure",
+  "caption",
+  "image"
+ ],
+ "name": "r03_report_figure",
+ "pages": [
+  {
+   "figures": [
+    {
+     "role": "figure"
+    }
+   ],
+   "index": 0,
+   "paragraphs": [
+    {
+     "role": "title",
+     "text": "Results at a glance"
+    },
+    {
+     "role": "body",
+     "text": "The program started in a single neighbourhood and now runs in five. Each site has a coordinator, a group of volunteers and a small budget for materials."
+    },
+    {
+     "role": "caption",
+     "text": "Figure 1. Sessions held per month, January to June."
+    },
+    {
+     "role": "body",
+     "text": "Families told us that the most useful part was the evening sessions, because parents could join after work. We moved two thirds of the sessions to the evening in spring."
+    },
+    {
+     "role": "body",
+     "text": "Attendance grew steadily through the year. The largest increase came after the local library agreed to host the sessions and to promote them in its newsletter."
+    },
+    {
+     "role": "body",
+     "text": "We tracked three outcomes: reading level, attendance and parent participation. All three improved, although the change in reading level was smaller than planned."
+    },
+    {
+     "role": "footer",
+     "text": "Annual report 2026"
+    },
+    {
+     "role": "page_number",
+     "text": "1"
+    }
+   ],
+   "tables": []
+  }
+ ],
+ "slide_count": 1,
+ "source": "reportlab",
+ "truth_pptx": null
+}

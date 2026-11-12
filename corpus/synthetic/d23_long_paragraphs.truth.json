@@ -1,0 +1,200 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "justified",
+  "line_spacing",
+  "space_before_after"
+ ],
+ "name": "d23_long_paragraphs",
+ "sections": [],
+ "slide_count": 2,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "A page of text"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Our programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Our programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Our programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      43.2,
+      21.6,
+      907.2,
+      86.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      100.8,
+      892.8,
+      504.0
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "A page of text\nOur programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner.\nOur programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner.\nOur programs reached more communities this year than in any year before. Volunteers logged thousands of hours, partners opened new sites, and the team rebuilt the intake process so that families wait less and get help sooner."
+  },
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 1,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Centered heading"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Quest'anno le attività del museo hanno coinvolto più scuole e famiglie che mai. Le visite guidate, i laboratori didattici e le aperture serali hanno portato nuovi visitatori, e la città ha risposto con entusiasmo alle iniziative più originali."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Right aligned note"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      57.6,
+      57.6,
+      892.8,
+      129.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      144.0,
+      158.4,
+      813.6,
+      410.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      446.4,
+      892.8,
+      489.6
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "text_box": 3
+   },
+   "tables": [],
+   "text": "Centered heading\nQuest'anno le attività del museo hanno coinvolto più scuole e famiglie che mai. Le visite guidate, i laboratori didattici e le aperture serali hanno portato nuovi visitatori, e la città ha risposto con entusiasmo alle iniziative più originali.\nRight aligned note"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d23_long_paragraphs.pptx"
+}

@@ -1,0 +1,312 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "background",
+  "dark",
+  "theme_colors"
+ ],
+ "name": "d25_dark_background",
+ "sections": [],
+ "slide_count": 2,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": true,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Night mode"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "White text on a dark background."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Second paragraph."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "3%"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "4%"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "5%"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      43.2,
+      28.8,
+      907.2,
+      100.8
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      43.2,
+      115.2,
+      547.2,
+      331.2
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      590.4,
+      115.2,
+      734.4,
+      201.6
+     ],
+     "kind": "auto_shape",
+     "preset": "roundRect",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      756.0,
+      223.2,
+      900.0,
+      309.6
+     ],
+     "kind": "auto_shape",
+     "preset": "roundRect",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      590.4,
+      331.2,
+      734.4,
+      417.6
+     ],
+     "kind": "auto_shape",
+     "preset": "roundRect",
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "auto_shape": 3,
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "Night mode\nWhite text on a dark background.\nSecond paragraph.\n3%\n4%\n5%"
+  },
+  {
+   "charts": [],
+   "has_background": true,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 1,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Highlights"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "White text on a dark background."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Second paragraph."
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "6%"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "8%"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "10%"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      43.2,
+      28.8,
+      907.2,
+      100.8
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      43.2,
+      115.2,
+      547.2,
+      331.2
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      590.4,
+      115.2,
+      734.4,
+      201.6
+     ],
+     "kind": "auto_shape",
+     "preset": "roundRect",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      756.0,
+      223.2,
+      900.0,
+      309.6
+     ],
+     "kind": "auto_shape",
+     "preset": "roundRect",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      590.4,
+      331.2,
+      734.4,
+      417.6
+     ],
+     "kind": "auto_shape",
+     "preset": "roundRect",
+     "role": "text",
+     "rotation": 0.0
+    }
+   ],
+   "shapes": {
+    "auto_shape": 3,
+    "text_box": 2
+   },
+   "tables": [],
+   "text": "Highlights\nWhite text on a dark background.\nSecond paragraph.\n6%\n8%\n10%"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "00B0F0",
+   "accent2": "FFC000",
+   "accent3": "92D050",
+   "accent4": "FF5050",
+   "accent5": "B4A7D6",
+   "accent6": "F4B183",
+   "dk1": "000000",
+   "dk2": "1B2A41",
+   "lt1": "FFFFFF",
+   "lt2": "E7E6E6"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d25_dark_background.pptx"
+}

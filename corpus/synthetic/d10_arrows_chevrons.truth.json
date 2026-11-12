@@ -1,0 +1,219 @@
+{
+ "aspect": "16:9",
+ "category": "synthetic_deck",
+ "features": [
+  "shapes",
+  "arrows",
+  "chevron",
+  "rotation"
+ ],
+ "name": "d10_arrows_chevrons",
+ "sections": [],
+ "slide_count": 1,
+ "slide_height_pt": 540.0,
+ "slide_width_pt": 960.0,
+ "slides": [
+  {
+   "charts": [],
+   "has_background": false,
+   "has_slide_number_field": false,
+   "hyperlinks": [],
+   "index": 0,
+   "layout": "Blank",
+   "notes": "",
+   "paragraphs": [
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Process"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Plan"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Build"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Test"
+    },
+    {
+     "bullet": "none",
+     "fonts": [
+      "Calibri"
+     ],
+     "has_field": false,
+     "level": 0,
+     "role": "text",
+     "text": "Launch"
+    }
+   ],
+   "shape_list": [
+    {
+     "bbox_pt": [
+      43.2,
+      21.6,
+      907.2,
+      86.4
+     ],
+     "kind": "text_box",
+     "preset": null,
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      129.6,
+      288.0,
+      216.0
+     ],
+     "kind": "auto_shape",
+     "preset": "homePlate",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      273.6,
+      129.6,
+      504.0,
+      216.0
+     ],
+     "kind": "auto_shape",
+     "preset": "chevron",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      489.6,
+      129.6,
+      720.0,
+      216.0
+     ],
+     "kind": "auto_shape",
+     "preset": "chevron",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      705.6,
+      129.6,
+      936.0,
+      216.0
+     ],
+     "kind": "auto_shape",
+     "preset": "chevron",
+     "role": "text",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      57.6,
+      288.0,
+      273.6,
+      360.0
+     ],
+     "kind": "auto_shape",
+     "preset": "rightArrow",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      309.6,
+      288.0,
+      525.6,
+      360.0
+     ],
+     "kind": "auto_shape",
+     "preset": "leftArrow",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      576.0,
+      266.4,
+      648.0,
+      410.4
+     ],
+     "kind": "auto_shape",
+     "preset": "upArrow",
+     "rotation": 0.0
+    },
+    {
+     "bbox_pt": [
+      691.2,
+      302.4,
+      878.4,
+      367.2
+     ],
+     "kind": "auto_shape",
+     "preset": "rightArrow",
+     "rotation": 30.0
+    },
+    {
+     "bbox_pt": [
+      72.0,
+      403.2,
+      216.0,
+      475.2
+     ],
+     "kind": "auto_shape",
+     "preset": "rect",
+     "rotation": 15.0
+    }
+   ],
+   "shapes": {
+    "auto_shape": 9,
+    "text_box": 1
+   },
+   "tables": [],
+   "text": "Process\nPlan\nBuild\nTest\nLaunch"
+  }
+ ],
+ "source": "python-pptx",
+ "theme": {
+  "colors": {
+   "accent1": "4F81BD",
+   "accent2": "C0504D",
+   "accent3": "9BBB59",
+   "accent4": "8064A2",
+   "accent5": "4BACC6",
+   "accent6": "F79646",
+   "dk1": "000000",
+   "dk2": "1F497D",
+   "lt1": "FFFFFF",
+   "lt2": "EEECE1"
+  },
+  "major_font": "Calibri",
+  "minor_font": "Calibri"
+ },
+ "truth_pptx": "d10_arrows_chevrons.pptx"
+}
