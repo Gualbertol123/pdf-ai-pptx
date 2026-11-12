@@ -14,8 +14,8 @@ def test_parser_has_all_subcommands() -> None:
 
 
 def test_stubs_exit_cleanly(capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.main(["convert", "x.pdf"]) == 3
-    assert "Milestone 2" in capsys.readouterr().err
+    assert cli.main(["report", "x.pdf"]) == 3
+    assert "Milestone 3" in capsys.readouterr().err
 
 
 def test_doctor_parts_without_powerpoint() -> None:

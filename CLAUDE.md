@@ -12,11 +12,14 @@ the latest PROGRESS.md entry before starting a prompt.
 .venv\Scripts\mypy                           # strict on ir.py and build/units.py
 .venv\Scripts\pdf2pptx doctor
 .venv\Scripts\pdf2pptx corpus build          # ~60 s, deterministic, regenerates corpus/synthetic
-.venv\Scripts\pdf2pptx score --corpus --against truth|blank|out --label NAME
+.venv\Scripts\pdf2pptx convert in.pdf -o out.pptx      # IR cached in work/<sha256>/ir_<stage>.json
+.venv\Scripts\pdf2pptx convert --corpus --no-cache     # ~12 s -> out/corpus, + PowerPoint open check
+.venv\Scripts\pdf2pptx score --corpus --against truth|blank|out --label NAME [--as-baseline]
 ```
 
 Scores go to `work/scores/<label>/` (git-ignored). `work/scores/truth` and `blank` hold
-the M1 metric sanity runs; re-run them if missing.
+the M1 metric sanity runs; `work/scores/baseline.json` is the M2 BASELINE every later
+milestone must beat. Re-run them if missing.
 
 ## Binding rules (PLAN.md §8)
 
@@ -40,4 +43,8 @@ the M1 metric sanity runs; re-run them if missing.
 - Office runs in an Italian locale: COM error messages are in Italian.
 - pytest may print `Windows fatal exception: code 0x80010108` after COM tests; it is a
   handled disconnect, not a failure.
+- Bump the stage version in `pipeline.STAGE_VERSIONS` (or `parse.PARSER_VERSION`) when a
+  stage's output changes, or stale `work/<sha>/ir_*.json` caches are reused.
+- pdfium quirks (M2): pattern fills report as opaque white, soft masks don't show in
+  `HasTransparency`; see PROGRESS.md M2 for the workarounds.
 - More measured COM facts (text-layout boxes, table-cell offsets): PROGRESS.md, M1.

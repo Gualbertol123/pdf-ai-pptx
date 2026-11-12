@@ -12,7 +12,6 @@ from . import __version__, log
 from .config import MODES, TIERS, Config, load_config
 
 NOT_YET = {
-    "convert": "Milestone 2 (ingest + baseline converter)",
     "report": "Milestone 3 (debug report)",
     "setup": "Milestone 8 (models) / Milestone 9 (llama.cpp)",
 }
@@ -66,6 +65,10 @@ def cmd_score(args: argparse.Namespace) -> int:
                                only=args.only or None)
         print(score.summary_markdown(s))
         print(f"written: {cfg.scores_dir / (args.label or args.against)}")
+        if args.as_baseline:
+            base = cfg.scores_dir / "baseline.json"
+            base.write_text(json.dumps(s, indent=1), encoding="utf-8", newline="\n")
+            print(f"baseline: {base}")
         return 0
     if not args.pdf or not args.pptx:
         print("score: give <pdf> <pptx>, or --corpus", file=sys.stderr)
@@ -81,6 +84,27 @@ def cmd_score(args: argparse.Namespace) -> int:
     (out_dir / f"{pdf.stem}.md").write_text(md, encoding="utf-8")
     print(md)
     print(f"written: {out}")
+    return 0
+
+
+def cmd_convert(args: argparse.Namespace) -> int:
+    from . import pipeline
+
+    cfg = _config(args)
+    use_cache = not args.no_cache
+    if args.corpus:
+        s = pipeline.convert_corpus(cfg, only=args.only or None, use_cache=use_cache,
+                                    check=not args.no_check)
+        print(json.dumps(s, indent=1, sort_keys=True))
+        print(f"written: {cfg.out_dir / 'corpus'}")
+        return 0 if not s["failures"] and s["converted"] == s["files"] else 1
+    if not args.pdf:
+        print("convert: give <pdf>, or --corpus", file=sys.stderr)
+        return 2
+    pdf = Path(args.pdf)
+    out = Path(args.output) if args.output else pdf.with_suffix(".pptx")
+    res = pipeline.convert(pdf, out, cfg, use_cache=use_cache)
+    print(json.dumps(res.as_dict(), indent=1))
     return 0
 
 
@@ -105,8 +129,13 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--mode", choices=MODES)
     c.add_argument("--tier", choices=TIERS)
     c.add_argument("--corpus", action="store_true")
-    c.add_argument("--workers", type=int)
-    c.set_defaults(func=cmd_stub)
+    c.add_argument("--workers", type=int, help="process pool size (default 6)")
+    c.add_argument("--only", nargs="*", help="corpus mode: names to convert")
+    c.add_argument("--no-cache", dest="no_cache", action="store_true",
+                   help="ignore cached IR in work/<sha256>/")
+    c.add_argument("--no-check", dest="no_check", action="store_true",
+                   help="corpus mode: skip opening each output in PowerPoint")
+    c.set_defaults(func=cmd_convert)
 
     s = sub.add_parser("score", parents=[common], help="score a PPTX against its PDF")
     s.add_argument("pdf", nargs="?")
@@ -118,6 +147,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--label", help="name of the result folder under work/scores/")
     s.add_argument("--only", nargs="*", help="corpus names to include")
     s.add_argument("--render-dpi", dest="render_dpi", type=int)
+    s.add_argument("--as-baseline", dest="as_baseline", action="store_true",
+                   help="also save the summary as work/scores/baseline.json")
     s.set_defaults(func=cmd_score)
 
     k = sub.add_parser("corpus", parents=[common], help="build or list the synthetic corpus")

@@ -163,6 +163,14 @@ class PowerPointSession:
         finally:
             self.close(pres)
 
+    def slide_count(self, pptx: Path) -> int:
+        """Open read-only (fails on a file that needs repair) and count slides."""
+        pres = self.open(pptx)
+        try:
+            return int(pres.Slides.Count)
+        finally:
+            self.close(pres)
+
     def render(self, pptx: Path, out_dir: Path, dpi: int) -> list[Path]:
         """Export every slide as PNG at ``dpi`` (relative to the slide size in pt)."""
         out_dir.mkdir(parents=True, exist_ok=True)

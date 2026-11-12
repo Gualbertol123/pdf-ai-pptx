@@ -202,8 +202,13 @@ def score_corpus(cfg: Config, against: str = "out", label: str | None = None,
             text_ref = None
             if entry.get("derived_from"):  # scanned: no text layer, use the clean source
                 text_ref = cfg.corpus_dir / "synthetic" / f"{entry['derived_from']}.pdf"
+            spp = None
+            if against == "out":
+                meta = cfg.out_dir / "corpus" / f"{entry['name']}.convert.json"
+                if meta.is_file():
+                    spp = json.loads(meta.read_text(encoding="utf-8")).get("seconds_per_page")
             res = score_pair(cfg.corpus_dir / entry["pdf"], pptx, cfg, ppt=ppt,
-                             name=entry["name"], text_ref_pdf=text_ref)
+                             name=entry["name"], text_ref_pdf=text_ref, seconds_per_page=spp)
             if ppt is None:
                 res["powerpoint_error"] = res["powerpoint_error"] or "PowerPoint unavailable"
             res["category"] = entry["category"]

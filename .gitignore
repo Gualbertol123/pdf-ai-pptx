@@ -14,6 +14,7 @@ __pycache__/
 /tools/
 corpus/real/
 out/**/*.pptx
+out/**/*.json
 /models/
 *.gguf
 *.onnx
