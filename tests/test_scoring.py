@@ -8,7 +8,7 @@ import pytest
 from reportlab.pdfgen import canvas
 
 from pdf2pptx.config import Config
-from pdf2pptx.verify import _com_temp, score
+from pdf2pptx.verify import ppt_com, score
 from pdf2pptx.verify.pdf_text import page_refs, render_pages
 from pdf2pptx.verify.pptx_stats import blank_deck, deck_stats
 
@@ -61,15 +61,19 @@ def test_deck_stats_counts() -> None:
 def test_truth_scores_high_blank_scores_low(tmp_path: Path) -> None:
     cfg = Config(work_dir=tmp_path)
     syn = CORPUS / "synthetic"
-    with _com_temp.session() as ppt:
+    with ppt_com.PowerPointEngine() as eng:
         for name in ("d01_title_bullets", "d07_table_simple", "d23_long_paragraphs"):
-            _check_truth_vs_blank(cfg, syn, name, ppt, tmp_path)
-    assert not (_com_temp._STARTED_BY_US & _com_temp._ppt_pids()), "PowerPoint left running"
+            _check_truth_vs_blank(cfg, syn, name, eng, tmp_path)
+    # an instance this engine used is gone unless another live engine still uses it
+    shared = ppt_com._SHARED.owned_pids if ppt_com._SHARED else []
+    assert set(eng.owned_history) & set(ppt_com.owned_alive()) <= set(shared)
 
 
-def _check_truth_vs_blank(cfg: Config, syn: Path, name: str, ppt: _com_temp.PowerPointSession,
+def _check_truth_vs_blank(cfg: Config, syn: Path, name: str, eng: ppt_com.PowerPointEngine,
                           tmp_path: Path) -> None:
-    res = score.score_pair(syn / f"{name}.pdf", syn / f"{name}.pptx", cfg, name=name, ppt=ppt)
+    res = score.score_pair(syn / f"{name}.pdf", syn / f"{name}.pptx", cfg, name=name,
+                           engine=eng)
+    assert len(res["com_seconds_per_slide"]) == res["slides_in_pptx"]
     assert res["powerpoint"] == "ok"
     s = res["summary"]
     assert s["ssim"]["median"] >= 0.97, name
@@ -78,7 +82,20 @@ def _check_truth_vs_blank(cfg: Config, syn: Path, name: str, ppt: _com_temp.Powe
     assert s["linebreak_match"]["median"] >= 0.99, name
     refs = page_refs(syn / f"{name}.pdf")
     blank = blank_deck(tmp_path / f"{name}_blank.pptx", [(r.width, r.height) for r in refs])
-    b = score.score_pair(syn / f"{name}.pdf", blank, cfg, name=f"{name}_blank", ppt=ppt)
+    b = score.score_pair(syn / f"{name}.pdf", blank, cfg, name=f"{name}_blank", engine=eng)
     assert b["summary"]["text_sim"]["median"] == 0.0
     assert b["summary"]["composite"]["median"] < 0.6
     assert b["summary"]["region_ssim_min"]["median"] < s["region_ssim_min"]["median"]
+
+
+@pytest.mark.corpus
+def test_score_without_powerpoint_is_null_with_reason(tmp_path: Path) -> None:
+    cfg = Config(work_dir=tmp_path)
+    syn = CORPUS / "synthetic"
+    res = score.score_pair(syn / "d01_title_bullets.pdf", syn / "d01_title_bullets.pptx", cfg,
+                           engine_error="PowerPointUnavailable: simulated")
+    assert res["powerpoint"] is None and "simulated" in res["powerpoint_error"]
+    s = res["summary"]
+    for k in ("ssim", "region_ssim_min", "pos_err_pt", "linebreak_match"):
+        assert s[k]["median"] is None, k
+    assert s["text_sim"]["median"] == 1.0 and s["composite"]["median"] is not None

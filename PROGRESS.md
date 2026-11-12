@@ -4,7 +4,7 @@
 |---|---|---|---|
 | 1 | Foundation, IR, corpus, scoring harness | **done** | 2026-11-11 |
 | 2 | Ingest and baseline converter | **done** | 2026-11-12 |
-| 3 | PowerPoint check engine and debug report | not started | |
+| 3 | PowerPoint check engine and debug report | **done** | 2026-11-12 |
 | 4 | Text understanding and fonts | not started | |
 | 5 | Fidelity tuner | not started | |
 | 6 | Graphics and tables | not started | |
@@ -342,3 +342,182 @@ The next lowest by ssim:
 
 Milestone 3: the `verify/ppt_com.py` worker process (replacing `_com_temp.py`), the fast
 check engine and the HTML debug report.
+
+---
+
+## Milestone 3: PowerPoint check engine and debug report (2026-11-12)
+
+### What exists
+
+- **`verify/ppt_com.py`**, the only module that talks to PowerPoint.
+  - **Worker.** PowerPoint runs in a worker *process* (`multiprocessing` spawn), whose
+    main thread is the single COM STA thread. The client, `PowerPointEngine`, is
+    thread-safe and serialises calls.
+  - **Operations** (over a queue): `open(pptx)` → `PresInfo` (slides, size),
+    `render(pres, slides, dpi, dir)` → PNGs, `text_layout(pres, slide)`, `export_pdf`,
+    `close`, `ping`. Slides are addressed by 0-based index (= IR page index).
+    `text_layout` returns, per text shape (a table cell counts as one shape), lines
+    with text, raw `BoundLeft/Top/Width/Height` and trimmed word boxes.
+  - **Robustness.**
+    - A heartbeat is updated between COM operations, and every call has a timeout.
+    - The engine restarts on worker death, a hang, or an RPC disconnect: it kills the
+      worker, releases its PowerPoint, starts a new worker, re-opens the open
+      presentations and retries the call.
+    - A bad file is a `PowerPointError`, not a restart.
+    - The worker exits if its client dies.
+  - **PowerPoint settings.** `DispatchEx`, read-only `WithWindow=False` presentations,
+    `DisplayAlerts` off.
+  - **Process hygiene.**
+    - Every POWERPNT.EXE we start is registered in `%TEMP%\pdf2pptx\ppt_owned` with its
+      creation time, which guards against pid reuse.
+    - PowerPoint is single-instance, so a second engine *attaches* to the first one's
+      process; it then registers as co-owner. An instance is quit or killed only when
+      no live co-owner is left and it holds no foreign presentations.
+    - Orphans (all owners dead) are reaped when the next engine starts.
+    - A PowerPoint the user started is never quit or killed.
+  - **Lifetime.** `ppt_com.shared()` gives one long-lived engine per process; an atexit
+    hook stops it before multiprocessing terminates daemon children. If PowerPoint is
+    missing, the error is remembered, so it costs one start attempt per process.
+  - **Speed.** Unchanged files reuse the open presentation, and only the requested
+    slides are rendered.
+- **`verify/_com_temp.py` is gone.** `score`, `pipeline` (the corpus open check),
+  `corpus build` (PDF export), `doctor` and the tests all use `ppt_com`.
+- **`verify/diff.py`**: aligned per-slide comparison.
+  - **Alignment.** The PowerPoint render is cropped to the page rectangle that the
+    builder's uniform scale + centring puts on the slide, then resampled to the PDF
+    render's size. When sizes are equal this is the identity.
+  - **Scores.** SSIM map, 4×4 region scores, `region_ssim_min`.
+  - **Mismatch regions.** Low local SSIM, smoothed and closed, then connected
+    components, each with page bbox (pt), mean SSIM, severity, and the overlapping IR
+    element ids. Ids are ranked by overlap² / (region area × element area), so the
+    specific element comes before a page background.
+  - **Heatmap PNG.** The page faded to gray, 1 − SSIM in colour, regions outlined,
+    4×4 grid.
+- **`metrics.py`.** `words_from_layout()` turns `text_layout()` lines into the PPTX
+  side of `pos_err_pt` / `linebreak_match` / `word_recall`. `map_lines()` maps slide
+  pt back to page pt when page and slide sizes differ (letterboxed pages).
+- **`score.py`.**
+  - It renders and lays out each slide through the engine, records
+    `com_seconds_per_slide` and keeps the 4×4 region grid plus the top-10 mismatch
+    regions per slide in the JSON.
+  - Corpus summaries print `PowerPoint render + text layout per slide: median …`.
+  - Without PowerPoint, its scores are null and `powerpoint_error` says why.
+- **`report/debug_html.py`** + **`pdf2pptx report <pdf> [<pdf> …] [-o] [--pptx]
+  [--corpus/--only]`.**
+  - Converts (cached), scores and writes one self-contained HTML per PDF
+    (`out/report/<stem>.html`, no external assets).
+  - Top of the page: document status and a sortable per-page score table (click a
+    header; n/a sorts last; a page link jumps to it).
+  - Per page: triage chip + reason, the page's score row, and three panels: PDF
+    (pdfium) | PPTX (PowerPoint) | diff heatmap.
+  - SVG overlays on every panel:
+    - IR boxes: the elements, the per-line text boxes the builder writes, and
+      annotations. They toggle by kind and by source and are coloured by either;
+      rotated text blocks are drawn rotated.
+    - PowerPoint's own line boxes, mapped back to page pt.
+    - Mismatch regions.
+  - Hovering a box shows its JSON (long lists cut).
+  - Several PDFs also get an `index.html` with a sortable per-document table.
+  - Without PowerPoint, a banner says why and which scores are missing; the PDF panel
+    and overlays still work.
+- **`log.py`.** The handler writes to the *current* `sys.stderr`. Before, logging from
+  atexit hooks under pytest hit a closed capture stream.
+
+### Measured facts that later milestones rely on
+
+- **COM cost is in object creation, not in PowerPoint's layout.**
+  - A property read on an existing object costs ~0.25 ms.
+  - Each *new* object costs 2–10 ms because of pywin32's wrapping. Dynamic dispatch
+    does a type-info lookup per object; `TextRange2` / `TextFrame2` live in the Office
+    type library, so even PowerPoint makepy doesn't cover them. Makepy classes for
+    both libraries still do one cross-process `QueryInterface` per object.
+  - Raw `IDispatch.Invoke` with DISPIDs cached per (interface, member) costs one round
+    trip per member.
+  - Together with a python-pptx plan (only text-bearing shapes are visited) and
+    trimming only words with trailing whitespace, text layout went from 9.3 s to
+    0.9 s on r01 (70 lines, 376 words) and from 0.5–1.5 s to 0.05–0.2 s on typical
+    slides.
+- **Render.** `Slide.Export` at 150 DPI takes 0.07–0.14 s per slide. Opening a
+  presentation takes 0.06–0.35 s, and starting the worker + PowerPoint about 2.5–4 s.
+- **Killing PowerPoint under a live worker** shows up as RPC error `0x800706BE`
+  ("La chiamata di procedura remota non è riuscita"). The worker then reports
+  `fatal`, and the client restarts it.
+- **Headless Edge** (`msedge --headless --screenshot`) exits with code 21 on this PC,
+  probably because of corporate policy. Report checks therefore re-draw the HTML's
+  own SVG rects onto its inlined images (see below).
+
+### Checks
+
+| Check | Result |
+|---|---|
+| Stress: 200 `render` calls in a row over 8 corpus decks; worker killed after call 70, its POWERPNT.EXE killed after call 140 | **200/200 complete, 2 restarts, 21.6 s.** The dead workers' PowerPoints are gone, and nothing is left after `stop()` (`test_stress_recovers_from_killed_worker`) |
+| Hang: a call that sleeps 30 s, with a 2 s timeout | Times out, the worker and its PowerPoint are killed, and a fresh worker answers `ping` (`test_timeout_restarts_worker`) |
+| Speed: render + text layout per slide, corpus (`score --corpus --against out`) | **median 0.144 s**, mean 0.187 s, max 0.995 s (r01, 376 words, includes the first-call shape plan); 60/62 slides ≤ 0.5 s. Truth decks: median 0.125 s, max 0.504 s |
+| `text_layout` line counts on 5 slides with known truth: 3 paragraphs; 2 soft breaks; a 2×2 table with a 2-paragraph cell; a group of 2 boxes; 10 Consolas words wrapping 2 per line | **3, 3, 5, 2, 5: all correct.** Origins within 1.5 pt, and the Consolas word width is 44 ± 2 pt (`test_text_layout_line_counts`) |
+| `pdf2pptx report` on d01_title_bullets (3 pages), r02_report_tables_it, d26_kitchen_sink | HTML written in 6.8 / 2.4 / 1.8 s (1.1 MB / 0.6 MB / 0.4 MB), plus `index.html` |
+| Overlay alignment (d26, r02, d01) | See below |
+| No leftover PowerPoint | No POWERPNT.EXE and an empty registry after the test suite (session fixture asserts it), `convert --corpus`, `score --corpus` ×3, `report` ×3, `doctor` and single-file `score` |
+| No PowerPoint (simulated: `ppt_com.shared` raises) | `report` still writes the HTML, with the banner + reason (`test_report_without_powerpoint`); `score_pair` gives null ssim / region / pos_err / lb_match with the reason, while text scores and composite stay (`test_score_without_powerpoint_is_null_with_reason`) |
+| `pytest -q` | **74 passed in ~90 s** (M2: 61 in ~3 min). The `0x80010108` faulthandler message is gone, since COM is no longer in the test process |
+| `ruff check .` / `mypy` | clean / clean |
+| `convert --corpus --no-cache` | 33/33 files, 33/33 open in PowerPoint, 8.7 s |
+
+**How the overlays were checked.** I parsed each generated HTML and drew its `<rect>`s
+onto its own inlined images with the browser's mapping (`viewBox` in pt,
+`preserveAspectRatio="none"` over the image box), then looked at the results.
+
+- **d26.** The blue IR text boxes frame every PDF text line ("Dashboard", the three
+  bullets, the axis ticks 0–25 and Q1–Q4, the table cells, "On track") with no visible
+  offset. The orange shape and image boxes sit on the chart frame, the bars, the
+  table rules, the rounded rectangle, the circle, the logo and the gradient picture.
+- **d26, PPTX panel.** PowerPoint's own line boxes (cyan) coincide with the IR boxes.
+  The one visible difference is real, not an overlay error: the "!" inside the
+  circle is drawn a few pt left of its box by PowerPoint.
+- **Ink share.** 100% of dark pixels fall inside text boxes on d01's three pages.
+  r02 has 91.8%; the remainder is the table rules.
+- **Heatmap panel.** The 4×4 grid, the colour and the boxes line up on r02. Its hot
+  spots are the known Helvetica → Arial font substitution from M2.
+
+### Scores: unchanged, and the new full baseline
+
+Every metric on all 62 slides is **identical** to the M2 baseline (max abs difference
+0.0 for ssim, region_ssim_min, text_sim, word_recall, pos_err_pt, linebreak_match,
+real_text_ratio, native_shape_ratio, boxes_per_slide and composite). Rescoring the
+truth decks also reproduces the M1 truth scores exactly (58 slides). The new data
+per slide (4×4 regions, mismatch regions, `com_seconds_per_slide`) is extra.
+`seconds_per_page` differs only because the corpus was converted again (wall time:
+0.163 → 0.137 median).
+
+`work/scores/baseline.json` was rewritten from this run (`score --corpus --against out
+--label baseline --as-baseline`):
+
+| category | slides | ssim | reg_min | text_sim | w_recall | pos_err | lb_match | real_txt | native | boxes | s/page | composite |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| ALL | 62 | 0.989 (0.987) | 0.957 | 1.000 (0.951) | 1.000 | 0.508 | 1.000 | 1.000 | 0.000 | 5.000 | 0.137 | 0.896 |
+| report | 3 | 0.958 (0.947) | 0.865 | 1.000 (0.996) | 1.000 | 0.575 | 1.000 | 1.000 | 0.000 | 46.000 | 0.318 | 0.964 |
+| scanned | 3 | 0.984 (0.981) | 0.977 | 0.000 (0.000) | 0.000 | n/a | 0.000 | 0.000 | n/a | 0.000 | 0.129 | 0.437 |
+| synthetic_deck | 56 | 0.992 (0.989) | 0.957 | 1.000 (1.000) | 1.000 | 0.506 | 1.000 | 1.000 | 0.000 | 5.000 | 0.105 | 0.896 |
+
+PowerPoint render + text layout per slide: median 0.144 s, mean 0.187 s, max 0.995 s
+(n = 62). The by-file table equals M2's apart from `s/page`; it is in
+`work/scores/baseline/summary.md`.
+
+### Known gaps
+
+- The report re-renders the PDF pages once more for display (scoring already rendered
+  them). That costs ~0.1 s per page. It is simple to share later.
+- Mismatch regions use a fixed local-SSIM threshold (0.6). On font-substituted text
+  (r01/r02) almost every line becomes a region, which is correct but noisy. The tuner
+  (M5) should rank by severity and look at the region's element ids.
+- `text_layout` skips charts (as M1 did), so chart tick labels are still PDF-only
+  text.
+- Report HTML size grows ~350 KB per page (three JPEG panels). Fine for decks; a
+  100-page report would want a lower DPI or lazy loading.
+- The overlay check is done by re-drawing from the HTML, not by a browser screenshot,
+  because headless Edge is blocked here.
+
+### Next
+
+Milestone 4: text understanding and fonts (paragraphs, lists, reading order). The
+target is ≥ 5× fewer text boxes per slide and word_recall ≥ 0.99 on born-digital
+pages, measured against this baseline.

@@ -225,21 +225,23 @@ def convert_corpus(cfg: Config, *, only: list[str] | None = None, use_cache: boo
 
 def _com_check(results: dict[str, dict[str, Any]]) -> None:
     """Open every output in PowerPoint; record whether it opened and the slide count."""
-    from .verify import _com_temp
+    from .verify import ppt_com
 
     try:
-        with _com_temp.session() as ppt:
-            for name in sorted(results):
-                r = results[name]
-                if "error" in r:
-                    continue
-                try:
-                    n = ppt.slide_count(Path(r["output"]))
-                    r["com_slides"] = n
-                    r["com_open"] = "ok" if n == r["expected_pages"] else (
-                        f"slide count {n} != {r['expected_pages']}")
-                except Exception as exc:
-                    r["com_open"] = f"open failed: {type(exc).__name__}: {exc}"
+        ppt = ppt_com.shared()
+        for name in sorted(results):
+            r = results[name]
+            if "error" in r:
+                continue
+            try:
+                n = ppt.slide_count(Path(r["output"]))
+                r["com_slides"] = n
+                r["com_open"] = "ok" if n == r["expected_pages"] else (
+                    f"slide count {n} != {r['expected_pages']}")
+            except ppt_com.PowerPointUnavailable:
+                raise
+            except Exception as exc:
+                r["com_open"] = f"open failed: {type(exc).__name__}: {exc}"
     except Exception as exc:
         LOG.warning("PowerPoint check skipped: %s", exc)
         for r in results.values():

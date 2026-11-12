@@ -7,7 +7,7 @@ the latest PROGRESS.md entry before starting a prompt.
 ## Commands (Windows, PowerShell, from the repo root)
 
 ```powershell
-.venv\Scripts\pytest -q                      # ~3 min with PowerPoint; COM tests skip without it
+.venv\Scripts\pytest -q                      # ~1.5 min with PowerPoint; COM tests skip without it
 .venv\Scripts\ruff check .
 .venv\Scripts\mypy                           # strict on ir.py and build/units.py
 .venv\Scripts\pdf2pptx doctor
@@ -15,6 +15,7 @@ the latest PROGRESS.md entry before starting a prompt.
 .venv\Scripts\pdf2pptx convert in.pdf -o out.pptx      # IR cached in work/<sha256>/ir_<stage>.json
 .venv\Scripts\pdf2pptx convert --corpus --no-cache     # ~12 s -> out/corpus, + PowerPoint open check
 .venv\Scripts\pdf2pptx score --corpus --against truth|blank|out --label NAME [--as-baseline]
+.venv\Scripts\pdf2pptx report a.pdf [b.pdf ...]          # -> out/report/<stem>.html (+ index.html)
 ```
 
 Scores go to `work/scores/<label>/` (git-ignored). `work/scores/truth` and `blank` hold
@@ -29,8 +30,9 @@ milestone must beat. Re-run them if missing.
 - Everything optional degrades gracefully (no PowerPoint / models / GPU → fallback, never a crash).
 - Deterministic output: stable ids, sorted iteration, fixed seeds, LF line endings.
 - Points internally; EMU only in `src/pdf2pptx/build/units.py`.
-- PowerPoint COM only through `verify/ppt_com.py` (until Prompt 3 replaces it, the
-  temporary `verify/_com_temp.py`). Never quit or kill a PowerPoint the user started.
+- PowerPoint COM only through `verify/ppt_com.py` (worker process; use
+  `ppt_com.shared()` for the long-lived engine). Never quit or kill a PowerPoint the
+  user started.
 - No network at conversion time; downloads only in `pdf2pptx setup …`.
 - Privacy: never upload documents; `corpus/real/` stays out of git.
 - No AGPL dependencies (no PyMuPDF, Ultralytics, MinerU).
@@ -41,8 +43,13 @@ milestone must beat. Re-run them if missing.
   enforces LF). Avoid shell heredocs for Python source containing `\r`/`\n` escapes.
 - COM paths must be normalised backslash paths (`os.path.normpath`).
 - Office runs in an Italian locale: COM error messages are in Italian.
-- pytest may print `Windows fatal exception: code 0x80010108` after COM tests; it is a
-  handled disconnect, not a failure.
+- COM speed (M3): property reads cost ~0.25 ms, but every *new* COM object costs
+  2-10 ms when pywin32 wraps it (type-info lookup or a cross-process QueryInterface).
+  Hot loops in `ppt_com` use raw `IDispatch.Invoke` with cached DISPIDs (`_RAW`) and
+  skip non-text shapes using a python-pptx plan. Keep it that way.
+- PowerPoint is single-instance: a second engine attaches to the first one's
+  POWERPNT.EXE and registers as co-owner (`%TEMP%/pdf2pptx/ppt_owned`). Tests that
+  need their own instance call `ppt_com.shutdown_shared()` first.
 - Bump the stage version in `pipeline.STAGE_VERSIONS` (or `parse.PARSER_VERSION`) when a
   stage's output changes, or stale `work/<sha>/ir_*.json` caches are reused.
 - pdfium quirks (M2): pattern fills report as opaque white, soft masks don't show in

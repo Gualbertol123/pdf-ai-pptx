@@ -200,6 +200,23 @@ def match_words(pdf_lines: Lines, pptx_lines: Lines) -> tuple[list[Match], int]:
     return matches, n_pdf
 
 
+def words_from_layout(lines: Sequence[object]) -> list[list[Word]]:
+    """PowerPoint text layout (``ppt_com.LineBox`` list) -> word lines for matching.
+
+    This is where ``pos_err_pt`` / ``linebreak_match`` get their PPTX side: one line
+    per rendered PowerPoint line, words with COM ``Bound*`` boxes (slide pt).
+    """
+    return [[Word(w.text, w.x0, w.y0, w.x1, w.y1) for w in ln.words]  # type: ignore[attr-defined]
+            for ln in lines]
+
+
+def map_lines(lines: Lines, scale: float, dx: float, dy: float) -> list[list[Word]]:
+    """Slide pt -> page pt for a page placed on the slide at ``scale`` + (dx, dy)."""
+    s = scale or 1.0
+    return [[Word(w.text, (w.x0 - dx) / s, (w.y0 - dy) / s, (w.x1 - dx) / s, (w.y1 - dy) / s)
+             for w in line] for line in lines]
+
+
 def word_recall(pdf_lines: Lines, pptx_lines: Lines) -> float | None:
     matches, n = match_words(pdf_lines, pptx_lines)
     return None if n == 0 else len(matches) / n

@@ -30,8 +30,8 @@ runs, but every score that needs PowerPoint comes out as `null`.
 | `pdf2pptx corpus list` | Lists the corpus | M1 |
 | `pdf2pptx score <pdf> <pptx>` | Scores one PPTX against its PDF → `work/scores/single/` | M1 |
 | `pdf2pptx score --corpus [--against out\|truth\|blank] [--label L]` | Scores the whole corpus → `work/scores/<label>/` (per-file JSON, `summary.json`, `summary.md`) | M1 |
-| `pdf2pptx convert in.pdf -o out.pptx [--mode ...]` | Converts a PDF | stub, arrives in M2 |
-| `pdf2pptx report <pdf>` | HTML debug report | stub, arrives in M3 |
+| `pdf2pptx convert in.pdf -o out.pptx [--mode ...]` | Converts a PDF | M2 |
+| `pdf2pptx report <pdf> [<pdf> ...] [-o file/dir] [--pptx P]` | Converts, scores and writes one self-contained HTML per PDF to `out/report/` (PDF \| PPTX \| diff heatmap, IR overlays, sortable scores); several PDFs (or `--corpus [--only ...]`) also get an `index.html` | M3 |
 | `pdf2pptx setup models\|llm` | Downloads models and tools | stub, arrives in M8/M9 |
 
 `--against truth` scores the answer-key decks against their own PDFs, which checks
@@ -72,6 +72,6 @@ milestones score it too.
 - *A POWERPNT.EXE stays open*: our code only closes PowerPoint instances it started
   itself. If you had PowerPoint open, it is left alone and only our presentations
   are closed.
-- When pytest runs the COM tests it may print `Windows fatal exception: code
-  0x80010108`. This is a COM disconnect that was handled while PowerPoint shut down,
-  not a crash. It will go away once COM moves to its own worker process (Milestone 3).
+- PowerPoint runs behind a worker process (`verify/ppt_com.py`). Every POWERPNT.EXE it
+  starts is recorded in `%TEMP%\pdf2pptx\ppt_owned\`; if pdf2pptx is killed, the next
+  run reaps those instances (and only those).

@@ -19,7 +19,7 @@ from typing import Any
 import pypdfium2 as pdfium
 
 from .. import log
-from ..verify import _com_temp
+from ..verify import ppt_com
 from . import reports, scanned, synthetic, truth
 
 LOG = log.get(__name__)
@@ -68,10 +68,11 @@ def build(corpus_dir: Path, only: list[str] | None = None) -> dict[str, Any]:
 
     # 2. decks -> PDF through PowerPoint (one session for all)
     if decks:
-        with _com_temp.session() as ppt:
-            LOG.info("PowerPoint %s: exporting %d decks to PDF", ppt.version, len(decks))
-            for spec in decks:
-                ppt.export_pdf(syn / f"{spec.name}.pptx", syn / f"{spec.name}.pdf")
+        ppt = ppt_com.shared()
+        LOG.info("PowerPoint %s: exporting %d decks to PDF", ppt.version, len(decks))
+        for spec in decks:
+            with ppt.opened(syn / f"{spec.name}.pptx") as pres:
+                ppt.export_pdf(pres, syn / f"{spec.name}.pdf")
     for spec in decks:
         entries.append({
             "name": spec.name,

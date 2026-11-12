@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import multiprocessing as mp
 import os
 import platform
 import sys
@@ -12,32 +11,18 @@ from typing import Any
 from .config import Config
 
 
-def _ppt_probe(q: Any) -> None:
-    try:
-        from .verify import _com_temp
-
-        q.put(("ok", _com_temp.probe()))
-    except Exception as exc:
-        q.put(("error", f"{type(exc).__name__}: {exc}"))
-
-
 def check_powerpoint(timeout: float = 90.0) -> dict[str, Any]:
-    """Probe COM in a child process so a hung PowerPoint cannot hang doctor."""
+    """Probe COM through the engine (its worker process has its own timeouts, so a
+    hung PowerPoint cannot hang doctor)."""
     if sys.platform != "win32":
         return {"available": False, "detail": "not Windows"}
-    q: Any = mp.Queue()
-    p = mp.Process(target=_ppt_probe, args=(q,), daemon=True)
-    p.start()
-    p.join(timeout)
-    if p.is_alive():
-        p.kill()
-        return {"available": False, "detail": f"timed out after {timeout:.0f}s"}
     try:
-        status, detail = q.get_nowait()
-    except Exception:
-        return {"available": False, "detail": f"probe exited with code {p.exitcode}"}
-    return {"available": status == "ok", "detail": detail if status != "ok" else None,
-            "version": detail if status == "ok" else None}
+        from .verify import ppt_com
+
+        version = ppt_com.probe(timeout=timeout)
+    except Exception as exc:
+        return {"available": False, "detail": f"{type(exc).__name__}: {exc}"}
+    return {"available": True, "detail": None, "version": version}
 
 
 def check_onnxruntime() -> dict[str, Any]:
