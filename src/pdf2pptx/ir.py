@@ -59,7 +59,7 @@ class Gradient:
 
 @dataclass(kw_only=True)
 class Fill:
-    kind: str = "none"  # none | solid | gradient | image | pattern
+    kind: str = "none"  # none | solid | gradient | image | pattern (pattern: drawn by a raster)
     color: Color | None = None
     gradient: Gradient | None = None
     image_id: str | None = None
@@ -75,6 +75,8 @@ class Stroke:
     join: str = "miter"  # miter | round | bevel
     head_end: str | None = None  # none | triangle | arrow | stealth | oval | diamond
     tail_end: str | None = None
+    head_size: str = "med-med"  # arrowhead "<width>-<length>", each sm | med | lg
+    tail_size: str = "med-med"
 
 
 @dataclass(kw_only=True)
@@ -239,6 +241,7 @@ class Image(Element):
     KIND: ClassVar[str] = "image"
 
     file: str  # path relative to the work dir
+    svg_file: str | None = None  # vector version (written as SVG with ``file`` as fallback)
     sha256: str = ""
     crop: BBox = (0.0, 0.0, 0.0, 0.0)  # left, top, right, bottom fractions
     mask_file: str | None = None

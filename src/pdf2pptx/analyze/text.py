@@ -6,6 +6,8 @@ baseline one-box-per-line layout for it (graceful degradation, logged).
 
 from __future__ import annotations
 
+from typing import Any
+
 from .. import log
 from ..fonts.embed import embed_candidates
 from ..fonts.match import match_document
@@ -17,15 +19,19 @@ LOG = log.get(__name__)
 BULLET_IMAGE_NOTE = "bullet_image"
 
 
-def analyze_text(doc: Document) -> Document:
-    matches = match_document(doc)
+def analyze_text(doc: Document, matches: dict[str, Any] | None = None,
+                 skip_glyphs: dict[int, set[str]] | None = None) -> Document:
+    """``skip_glyphs``: per page, glyph ids already used elsewhere (table cells)."""
+    if matches is None:
+        matches = match_document(doc)
     embed_candidates(doc)
     blocks: dict[int, list[TextBlock]] = {}
     for page in doc.pages:
         if page.triage.fallback_image:
             continue
         try:
-            blocks[page.index] = text_group.group_page(page, doc.fonts, matches)
+            blocks[page.index] = text_group.group_page(
+                page, doc.fonts, matches, skip=(skip_glyphs or {}).get(page.index))
         except Exception as exc:
             LOG.error("page %d: text grouping failed (%s: %s); using one box per line",
                       page.index, type(exc).__name__, exc, exc_info=LOG.isEnabledFor(10))

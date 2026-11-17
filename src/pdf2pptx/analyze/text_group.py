@@ -982,13 +982,19 @@ def _levels_and_numbering(blk: Block) -> None:
             expect[p.level] = (lb.scheme, lb.value, lb.value + 1)
 
 
-def group_page(page: Page, fonts: dict[str, FontRef], matches: dict[str, FontMatch]) -> list[
-        TextBlock]:
-    """TextBlocks for one page (not yet added to ``page.elements``)."""
+def group_page(page: Page, fonts: dict[str, FontRef], matches: dict[str, FontMatch], *,
+               skip: set[str] | None = None, only: set[str] | None = None,
+               align: str | None = None, prefix: str | None = None) -> list[TextBlock]:
+    """TextBlocks for one page (not yet added to ``page.elements``).
+
+    ``skip`` / ``only``: glyph ids to leave out / to use exclusively (table cells);
+    ``align``: force every paragraph's alignment (a table column's); ``prefix``: block
+    id prefix instead of ``p<page>_b``."""
     # invisible text (render mode 3/7, or a fully transparent fill: PowerPoint exports
     # tagged 1-pt copies of link text that way) never becomes a text box
     visible = [(i, g) for i, g in enumerate(page.glyphs)
-               if g.render_mode not in (3, 7) and g.color.alpha > 0.01]
+               if g.render_mode not in (3, 7) and g.color.alpha > 0.01
+               and (skip is None or g.id not in skip) and (only is None or g.id in only)]
     if not visible:
         return []
     links = [a for a in page.annotations if a.subtype == "link"]
@@ -1017,14 +1023,19 @@ def group_page(page: Page, fonts: dict[str, FontRef], matches: dict[str, FontMat
             _paragraphs(blk)
             _alignment(blk)
             _single_line_block_alignment(ctx, blk, shapes)
+            if align is not None:
+                for para in blk.paras:
+                    if para.alignment != "justify" or align != "left":
+                        para.alignment, para.align_conf = align, max(para.align_conf, 0.8)
             _levels_and_numbering(blk)
-            out.append(_to_block(ctx, blk, links, len(out) + 1))
+            out.append(_to_block(ctx, blk, links, len(out) + 1, prefix))
     return out
 
 
-def _to_block(ctx: Ctx, blk: Block, links: list[Annotation], k: int) -> TextBlock:
+def _to_block(ctx: Ctx, blk: Block, links: list[Annotation], k: int,
+              prefix: str | None = None) -> TextBlock:
     pi = ctx.page.index
-    bid = f"p{pi}_b{k}"
+    bid = f"{prefix}{k}" if prefix else f"p{pi}_b{k}"
     geoms, top, bottom, vnotes = _vertical(ctx, blk)
     x0, width, hnotes = _horizontal(blk, geoms)
     notes = [*blk.notes, *vnotes, *hnotes]

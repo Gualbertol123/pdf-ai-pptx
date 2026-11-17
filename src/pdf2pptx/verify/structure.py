@@ -13,6 +13,11 @@ paragraphs (``truth.json``):
   checked: its visibility depends on the layout);
 * **fonts**: every IR run of a paired paragraph counts as correct when its family is
   one of the truth paragraph's fonts.
+
+Graphics (M6), for every truth auto-shape and connector: the IR shape whose frame
+overlaps it most (IoU >= 0.5, frames grown by 1 pt so lines have an area) must have
+the same preset. Tables: every truth table must be an IR ``Table`` (IoU >= 0.5) with
+the same rows x cols and the same merges.
 """
 
 from __future__ import annotations
@@ -22,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import Config
-from ..ir import Document, Paragraph, TextBlock
+from ..ir import Document, Paragraph, Shape, Table, TextBlock
 from .metrics import normalize_text
 
 BBox = tuple[float, float, float, float]
@@ -113,8 +118,64 @@ def _scale(doc: Document, truth: dict[str, Any], index: int) -> tuple[float, flo
     return s, (sw - page.width * s) / 2, (sh - page.height * s) / 2
 
 
+def _iou(a: BBox, b: BBox) -> float:
+    a = (a[0] - 1, a[1] - 1, a[2] + 1, a[3] + 1)
+    b = (b[0] - 1, b[1] - 1, b[2] + 1, b[3] + 1)
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+    return inter / union if union > 0 else 0.0
+
+
+def compare_graphics(doc: Document, slide: dict[str, Any], scale: tuple[float, float, float]
+                     ) -> dict[str, Any]:
+    s, dx, dy = scale
+    page = next((p for p in doc.pages if p.index == slide["index"]), None)
+    ir_shapes = ([e for e in page.elements if isinstance(e, Shape) and not e.is_background]
+                 if page else [])
+    ir_tables = [e for e in page.elements if isinstance(e, Table)] if page else []
+
+    def sbox(b: BBox) -> BBox:
+        return (b[0] * s + dx, b[1] * s + dy, b[2] * s + dx, b[3] * s + dy)
+
+    shapes_out = []
+    used: set[str] = set()
+    for t in slide.get("shape_list", []):
+        if t["kind"] not in ("auto_shape", "connector") or not t.get("preset"):
+            continue
+        tb = tuple(t["bbox_pt"])
+        best = max(((_iou(tb, sbox(e.bbox)), e) for e in ir_shapes if e.id not in used),
+                   key=lambda x: x[0], default=(0.0, None))
+        got = best[1].preset if best[1] is not None and best[0] >= 0.5 else None
+        if best[1] is not None and best[0] >= 0.5:
+            used.add(best[1].id)
+        shapes_out.append({"truth": t["preset"], "ir": got or "missing",
+                           "ok": got == t["preset"], "bbox": list(tb)})
+    frames = [tuple(e["bbox_pt"]) for e in slide.get("shape_list", []) if e["kind"] == "table"]
+    tables_out = []
+    for tt, fr in zip(slide.get("tables", []), frames, strict=False):
+        best = max(((_iou(fr, sbox(t.bbox)), t) for t in ir_tables), key=lambda x: x[0],
+                   default=(0.0, None))
+        t = best[1] if best[0] >= 0.5 else None
+        merges = (sorted([c.row, c.col, c.row_span, c.col_span] for c in t.cells
+                         if c.merged_into is None and (c.row_span > 1 or c.col_span > 1))
+                  if t is not None else None)
+        dims = (len(t.row_heights), len(t.col_widths)) if t is not None else None
+        tables_out.append({"truth": f"{tt['rows']}x{tt['cols']}",
+                           "ir": f"{dims[0]}x{dims[1]}" if dims else "missing",
+                           "merges_ok": merges == sorted(tt.get("merges", [])),
+                           "ok": dims == (tt["rows"], tt["cols"]) and merges == sorted(
+                               tt.get("merges", []))})
+    return {"shapes": shapes_out, "tables": tables_out}
+
+
 def compare_document(doc: Document, truth: dict[str, Any]) -> list[dict[str, Any]]:
-    return [compare_slide(doc, sl, _scale(doc, truth, sl["index"])) for sl in truth["slides"]]
+    out = []
+    for sl in truth["slides"]:
+        sc = _scale(doc, truth, sl["index"])
+        out.append({**compare_slide(doc, sl, sc), **compare_graphics(doc, sl, sc)})
+    return out
 
 
 def structure_corpus(cfg: Config, only: list[str] | None = None,
@@ -146,6 +207,17 @@ def structure_corpus(cfg: Config, only: list[str] | None = None,
         "mismatching": [f"{f['name']}#{s['index']}" for f in files for s in f["slides"]
                         if not s["match"]],
     }
+    shp = [g for sl in slides for g in sl.get("shapes", [])]
+    tbl = [g for sl in slides for g in sl.get("tables", [])]
+    summary["shapes"] = len(shp)
+    summary["shapes_preset_ok"] = sum(1 for g in shp if g["ok"])
+    summary["preset_match_rate"] = (round(summary["shapes_preset_ok"] / len(shp), 4) if shp
+                                    else None)
+    summary["preset_misses"] = [f"{f['name']}#{sl['index']}: {g['truth']} -> {g['ir']}"
+                                for f in files for sl in f["slides"]
+                                for g in sl.get("shapes", []) if not g["ok"]]
+    summary["tables"] = len(tbl)
+    summary["tables_ok"] = sum(1 for g in tbl if g["ok"])
     out = {"summary": summary, "files": files}
     path = cfg.scores_dir / "structure.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -163,6 +235,12 @@ def summary_text(res: dict[str, Any]) -> str:
         f"({s['font_match_rate']:.1%})",
         f"bullets present/absent: {s['bullets_ok']}/{s['bullets_checked']}",
     ]
+    if s.get("shapes"):
+        lines.append(f"shapes: {s['shapes_preset_ok']}/{s['shapes']} with the truth preset "
+                     f"({s['preset_match_rate']:.1%})"
+                     + (f"; misses {s['preset_misses'][:6]}" if s["preset_misses"] else ""))
+    if s.get("tables"):
+        lines.append(f"tables: {s['tables_ok']}/{s['tables']} with truth rows x cols + merges")
     for f in res["files"]:
         for sl in f["slides"]:
             if not sl["match"] or sl["font_misses"]:

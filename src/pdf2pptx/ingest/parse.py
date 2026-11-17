@@ -56,7 +56,8 @@ from .geom import Matrix
 
 LOG = log.get(__name__)
 
-PARSER_VERSION = "2.1"  # 2.1: font widths + embedded programs
+PARSER_VERSION = "2.2"  # 2.1: font widths + embedded programs; 2.2: mcid/form notes, kept
+# pattern-filled paths (fill kind "pattern" next to their raster)
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
 _STYLES = (r"Bold|Italic|Oblique|Regular|Semibold|SemiBold|Light|Medium|Black|Heavy|"
@@ -165,6 +166,8 @@ class _PageCtx:
     # top-level path objects that claim an opaque white fill: (shape, top-level index)
     white_fills: list[tuple[Shape, int]] = field(default_factory=list)
     top_index: int = -1
+    form_stack: list[int] = field(default_factory=list)  # open form XObjects (ids)
+    n_form: int = 0
     z: int = 0
     n_img: int = 0
     n_shape: int = 0
@@ -176,8 +179,13 @@ def _walk(ctx: _PageCtx, obj: Any, parent: Matrix) -> None:
     to_display = geom.concat(parent, ctx.display)
     if t == R.FPDF_PAGEOBJ_FORM:
         child_parent = geom.concat(_matrix(obj), parent)
-        for i in range(R.FPDFFormObj_CountObjects(obj)):
-            _walk(ctx, R.FPDFFormObj_GetObject(obj, i), child_parent)
+        ctx.n_form += 1
+        ctx.form_stack.append(ctx.n_form)
+        try:
+            for i in range(R.FPDFFormObj_CountObjects(obj)):
+                _walk(ctx, R.FPDFFormObj_GetObject(obj, i), child_parent)
+        finally:
+            ctx.form_stack.pop()
         return
     ctx.z += 1
     z = ctx.z
@@ -186,6 +194,7 @@ def _walk(ctx: _PageCtx, obj: Any, parent: Matrix) -> None:
     elif t == R.FPDF_PAGEOBJ_PATH:
         shape = _path(ctx, obj, to_display, z)
         if shape is not None:
+            shape.notes.extend(_group_notes(ctx, obj))
             ctx.elements.append(shape)
             col = shape.fill.color
             if (parent == geom.IDENTITY and col is not None and col.rgb == "FFFFFF"
@@ -194,11 +203,38 @@ def _walk(ctx: _PageCtx, obj: Any, parent: Matrix) -> None:
     elif t == R.FPDF_PAGEOBJ_IMAGE:
         img = _image(ctx, obj, parent, to_display, z)
         if img is not None:
+            img.notes.extend(_group_notes(ctx, obj))
             ctx.elements.append(img)
     elif t == R.FPDF_PAGEOBJ_SHADING:
         ctx.skipped["shading"] += 1
     else:
         ctx.skipped[f"type{t}"] += 1
+
+
+def _mark_name(mark: Any) -> str:
+    n = ctypes.c_ulong()
+    if not R.FPDFPageObjMark_GetName(mark, None, 0, n) or n.value < 2:
+        return ""
+    buf = ctypes.create_string_buffer(n.value)
+    R.FPDFPageObjMark_GetName(mark, ctypes.cast(buf, ctypes.POINTER(ctypes.c_ushort)), n.value, n)
+    return buf.raw.decode("utf-16-le", "replace").rstrip("\x00")
+
+
+def _group_notes(ctx: _PageCtx, obj: Any) -> list[str]:
+    """``mcid:<n>`` (innermost marked-content id) and ``form:<k>`` (innermost form
+    XObject): objects drawn as one unit by the producer (analyze/shapes.py groups them)."""
+    notes = []
+    mcid = None
+    for k in range(R.FPDFPageObj_CountMarks(obj)):
+        mark = R.FPDFPageObj_GetMark(obj, k)
+        v = ctypes.c_int()
+        if mark and R.FPDFPageObjMark_GetParamIntValue(mark, b"MCID", v):
+            mcid = f"{_mark_name(mark)}/{v.value}"
+    if mcid is not None:
+        notes.append(f"mcid:{mcid}")
+    if ctx.form_stack:
+        notes.append(f"form:{ctx.form_stack[-1]}")
+    return notes
 
 
 def _path(ctx: _PageCtx, obj: Any, to_display: Matrix, z: int) -> Shape | None:
@@ -459,8 +495,12 @@ def _rasterize_pattern_fills(ctx: _PageCtx) -> None:
         img = Image(id=img_id, bbox=_rbox(frame), z=shape.z, file=rel,
                     sha256=hashlib.sha256(data).hexdigest(), pixel_size=crop.size,
                     source="rule", confidence=0.8,
-                    notes=["raster:pattern_fill", f"replaces:{shape.id}"])
-        ctx.elements[ctx.elements.index(shape)] = img
+                    notes=["raster:pattern_fill", f"replaces:{shape.id}",
+                           *(n for n in shape.notes if n.startswith(("mcid:", "form:")))])
+        # the path stays (fill "pattern", not drawn) so analyze can rebuild a gradient
+        ctx.elements.insert(ctx.elements.index(shape), img)
+        shape.fill = Fill(kind="pattern", image_id=img_id)
+        shape.notes.append(f"raster:{img_id}")
         ctx.skipped["pattern_fill_rasterized"] += 1
 
 

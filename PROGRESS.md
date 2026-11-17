@@ -7,7 +7,7 @@
 | 3 | PowerPoint check engine and debug report | **done** | 2026-11-12 |
 | 4 | Text understanding and fonts | **done** | 2026-11-12 |
 | 5 | Fidelity tuner | **done** | 2026-11-12 |
-| 6 | Graphics and tables | not started | |
+| 6 | Graphics and tables | **done** | 2026-11-17 |
 | 7 | Document structure | not started | |
 | 8 | Hard pages (OCR, layout model, background cleanup) | not started | |
 | 9 | Local model service, benchmark, judgment, charts | not started | |
@@ -1014,3 +1014,208 @@ Milestone 6: graphics and tables (native shapes, native tables). The tuner works
 any `TextBlock`. When tables arrive, their cell text shows up in `text_layout` as
 `<table>[r,c]` shapes and needs its own mapping (cell → block) before it can be
 tuned.
+
+---
+
+## Milestone 6: graphics and tables (2026-11-17)
+
+### What exists
+
+- **`analyze/presets.py`**: the ECMA-376 preset formulas (outline in the shape's own
+  frame, adjust values in 1/100000 of the short side, pinned like PowerPoint) for rect,
+  roundRect, ellipse, triangle, rtTriangle, diamond, parallelogram, trapezoid, chevron,
+  homePlate, right/left/up/down arrows and pie; `place()` applies flips and clockwise
+  rotation; connection sites for rect / roundRect / diamond (4) and ellipse (8).
+- **`analyze/shapes.py`**, per page:
+  1. **Fill + stroke merge**: a fill-only path followed by a stroke-only path with the
+     same geometry becomes one shape.
+  2. **Background**: the bottom-most full-bleed opaque rectangle (or picture) is
+     `is_background`; the writer makes it the slide background (`p:bg`), or a locked
+     bottom shape when the page is letterboxed.
+  3. **Gradients**: the parser now keeps a pattern-filled path (fill `pattern`, not
+     drawn) next to its 144-DPI raster. The raster's pixels inside the path are fitted
+     with a linear gradient (angle searched in 3° steps, then 0.5°; DrawingML
+     `lin scaled=0` positions over the shape box) or a radial one; stops come from
+     Douglas–Peucker on the RGBA profile (3/255). Accepted only if the reconstruction's
+     mean error is ≤ 4/255; the raster is then dropped.
+  4. **Connectors**: stroked straight lines and axis-aligned elbows (1 or 2 bends →
+     `bentConnector2/3`, any rotation/flip, `adj1` fitted), and **PowerPoint's
+     outlined lines**. Its PDF export writes a line with arrowheads as one filled
+     compound path: a thin body polygon plus one polygon per head. The decoder finds
+     the body (thickness from area and perimeter) and its centre line (straight:
+     short-edge midpoints; elbow: snapped out-and-back walk). It classifies each head
+     (triangle / stealth / diamond / oval / arrow; size sm/med/lg from width and length
+     over max(line width, 2 pt)), and the line ends at the head's tip. A single head is
+     the tail (PowerPoint's default); with none or two, the line runs left → right.
+     Other producers' separate filled triangles at a line end become heads too.
+     Endpoints within 1.5 pt (or 1.5 × width) of a connection site are attached
+     (`stCxn` / `endCxn`, written with the target's shape id).
+  5. **Presets**: closed paths are fitted with candidate presets chosen by vertex count
+     (curved or > 8 vertices: ellipse / roundRect / pie).
+     - **Frames.** The frame is the bbox at 0°. If nothing fits there, the min-area
+       rectangle and the 3 longest edge directions (each + k·90°) are ranked at default
+       adjusts, and the best 6 are optimised.
+     - **Adjust values.** Bounded search (1 value) or grid + Nelder–Mead (2 values). A
+       default adjust within 0.1 pt of the best is kept.
+     - **Error.** The symmetric max distance between densely resampled outlines
+       (KD-tree).
+     - **Acceptance.** A preset is accepted only if the distance is ≤ max(0.75 pt, 1%
+       of the diagonal), capped at 3 pt, **and** a rasterised diff of the region (fill
+       + stroke width, up to 4 px/pt) has XOR/union ≤ 3%. Otherwise the freeform stays.
+     - Compound paths of disjoint parts are split (all parts must fit) and grouped.
+     - Dash patterns matching a PowerPoint preset (in line widths, within 12%) become
+       `prstDash`.
+  6. **Groups**: the parser records each path's and image's marked-content id
+     (`mcid:`) and form XObject (`form:`). Members of one id (≥ 2 non-text elements)
+     become a `Group` when nothing drawn between them in z overlaps their area and the
+     group covers < 80% of the page. In PowerPoint exports this groups each shape with
+     its exported shadow image.
+  7. **SVG**: clusters (3 pt proximity) of unfitted freeforms with ≥ 6 paths or ≥ 120
+     segments become one SVG picture at the exact bbox, when nothing in between in z
+     overlaps. The SVG is written from the IR paths, with a 2 px/pt PNG fallback
+     rendered from the same paths.
+- **`analyze/tables.py`** (runs before text grouping):
+  - **Ruled tables.**
+    - Axis-aligned rules (stroked lines and rectangles, thin filled rectangles) and
+      cell fills that touch form components. Grid lines are the clustered rule
+      positions plus fill edges.
+    - Neighbouring grid cells are separated when rules cover ≥ 50% of the shared edge,
+      or when they lie in different fill rectangles. Merged regions must be rectangles.
+    - Each cell gets a fill, each edge a border (width, colour, dash). Header rows are
+      a distinct fill or a bold first row; merged header rows are counted.
+    - Page-size fills are ignored. A table needs ≥ 3 text cells and text in ≥ 30% of
+      its cells (chart grids have no text inside).
+  - **Whitespace tables.**
+    - Text lines are split at wide gaps (text grouping's own rule). A table is a run of
+      consecutive, evenly spaced rows (pitch 0.8–2.6 × size), each with ≥ 2 segments,
+      whose x ranges leave common gutters (≥ max(0.8 em, 4 pt)).
+    - Guards: ≥ 3 rows; ≥ 60% of cells filled and each column ≥ 50%; cells ≤ 20 chars
+      on average (≤ 40 max); no list-label first column; and a numeric column or ≥ 2
+      full-width rules.
+    - Rules on row boundaries become borders.
+  - **Cell text** goes through the M4 machinery per cell:
+    `text_group.group_page(only=<cell glyphs>, align=<column alignment>, prefix=<cell
+    id>)`. The column's alignment (left / centre / right) comes from edge spreads, with
+    header rows decided separately. Several blocks in one cell become one frame with
+    space-before. A table with confidence < 0.6 changes nothing.
+- **`build/xml_ext.py`**:
+  - fills and lines: gradients (linear, radial `path`), preset and custom dashes,
+    head/tail ends with sizes;
+  - shapes: preset shapes with `avLst`, rotation and flips; locked shapes and picture
+    locks; connectors (`cxnSp`, `set_connection`);
+  - SVG pictures: `asvg:svgBlip` plus a deduplicated `image/svg+xml` part;
+  - tables: cell `tcPr` (margins, anchor, `lnL/R/T/B`, fill), and the "No Style, No
+    Grid" table style without banding;
+  - backgrounds: a fill or a stretched picture.
+- **Writer**:
+  - presets, connectors (references patched after the slide is written), freeforms,
+    groups (`grpSp`, extents from the children), SVG pictures and backgrounds;
+  - native tables (`Table <id>`): column widths, row heights, merges, fills and
+    borders. **Cell margins come from the cell text's frame**, so the M4 position is
+    kept, and empty paragraph marks are shrunk so no row grows;
+  - shapes with a `pattern` fill are not drawn.
+- **Tuner**: table cells take part. A state can point at `Table.cells[k].text`. Cells
+  are measured through PowerPoint's `Table <id>[r,c]` layout shapes, and width/move
+  fixes change the cell's text frame, i.e. its margins.
+- **`pdf2pptx structure`** also checks graphics and tables against the truth. Each
+  truth auto-shape or connector is paired with the best-overlapping IR shape
+  (IoU ≥ 0.5) and must have the same preset; each truth table must have the same
+  rows × cols and merges.
+- **Pipeline**: `analyze(doc, work_dir)` runs fonts → tables → text (table glyphs
+  skipped) → graphics, with stats in `metadata["pdf2pptx:graphics"]`.
+  `STAGE_VERSIONS["analyze"] = "graphics-6.0"`, `PARSER_VERSION = "2.2"`.
+- **IR** (additive): `Stroke.head_size` / `tail_size`, `Image.svg_file`; fill kind
+  `pattern` means drawn by a raster.
+
+### Measured facts that later milestones rely on
+
+- **COM `BoundTop` of table-cell text is `(marT − marB) / 2` relative to the cell.**
+  This was measured with marT 0 / 3.6 / 8 / 15 and marB 0 / 6. The text itself is laid
+  out like a text box: first baseline = cell top + marT + the M2 offset.
+  - The scorer (`ppt_com._collect_shape`) now adds `(marT + marB) / 2`. M1 only ever
+    saw marT = marB = 3.6, where this equals "+ marT", so earlier scores don't change.
+  - Before the fix, M6 tables looked 2 pt off (pos_err on d07 0.24 → 2.08), even
+    though a PDF round trip put every cell glyph within 0.1 pt.
+- **PowerPoint widens the last column of a horizontally merged cell until that column
+  holds the merged cell's marL + marR.** The writer keeps a spanning cell's margins
+  within that column (on d08, columns were pushed off the slide).
+- **PowerPoint's PDF export of lines.**
+  - It draws every line with arrowheads as filled outlines (body + heads, with the
+    body shortened under the head).
+  - It draws open "arrow" heads with round joins (curves).
+  - It keeps a plain dashed line as a stroked path.
+  - Head size on a 1.5 pt line equals that on a 2 pt line (6 pt): sizes scale with
+    max(width, 2 pt).
+- **PowerPoint's PDF export wraps each shape and its shadow image(s) in one
+  marked-content id.** The text inside a shape has a separate id.
+
+### Checks
+
+| Check | Target | Result |
+|---|---|---|
+| Synthetic `native_shape_ratio` | ≥ 0.80 | **median 1.000; pooled 226 / 228 = 0.991** (M5: 0). The 2 freeforms are d15's line-chart series (open polylines) |
+| Preset kinds = truth | ≥ 90% of shapes | **44 / 44 (100%)**: d09–d12, d19, d22, d25, d26 (rotated arrow and rect, roundRect adjusts, elbow and straight connectors, gradient and alpha shapes) |
+| Truth tables: rows × cols + merges | ≥ 90% of tables | **6 / 6**: d07 5×5, d08 6×5 with 3 merges, d26 3×2, d27 4×3, r02 ruled 5×4 and whitespace 5×3 |
+| Report PDFs: tables (whitespace included) | | r02: both tables native. r01, r03: no false tables. No false tables anywhere in the corpus |
+| ssim vs M5 | no regression > 1% | **none**: mean 0.99072 → 0.99071, median 0.995 = 0.995, in balanced, fidelity and editable. **No per-slide drop > 1% on any metric in any mode** |
+| xml_ext features open in PowerPoint without repair | every feature | `tests/test_xml_ext.py`: one deck uses every helper and opens. Its PDF export parses back into the same presets, connector heads, gradient, background colour and table text, and the SVG picture renders |
+| Preset formulas = PowerPoint | | `test_presets_round_trip_through_powerpoint`: PowerPoint draws 16 shapes (non-default adjusts, 30°/20° rotation, flipH); they are exported and recovered with preset, rotation and adjusts within 2%. `test_connectors_and_gradient_round_trip`: every head kind, two-headed lines, a linear gradient |
+| Table cells tuned | | `test_table_cells_are_tuned`: a cell moved 2/3 pt is put back (`ok`), `source="tuner"` |
+| `pytest -q`, `ruff check .`, `mypy` | clean | **157 passed** (~2.8 min), clean, clean |
+| `convert --corpus --no-cache` | | 33/33 convert, 33/33 open in PowerPoint (all three modes) |
+| Determinism | byte-identical | two no-cache corpus runs: 33/33 PPTX sha256-identical |
+
+### Scores (median over slides; `work/scores/m6_balanced`, `m6_fidelity`, `m6_editable`)
+
+| set | label | ssim (mean) | reg_min | text_sim | w_recall | pos_err | lb_match | native | boxes | composite |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ALL (62) | M5 balanced | 0.995 (0.9907) | 0.977 | 1.000 | 1.000 | 0.440 | 1.000 | 0.000 | 3 | 0.898 |
+| ALL (62) | **M6 balanced** | 0.995 (0.9907) | 0.977 | 1.000 | 1.000 | 0.440 | 1.000 | **1.000** | **2** | **0.998** |
+| synthetic (56) | **M6 balanced** | 0.995 (0.993) | 0.977 | 1.000 | 1.000 | 0.428 | 1.000 | **1.000** | **2** | **0.998** |
+| report (3) | M5 → M6 | 0.966 → 0.966 | 0.865 | 1.000 | 1.000 | 1.350 | 1.000 | n/a | 6 → 6 | 0.963 → 0.985 |
+| ALL (62) | M6 fidelity / editable | 0.995 / 0.995 | 0.977 | 1.000 | 1.000 | 0.440 / 0.444 | 1.000 | 1.000 | 2 | 0.998 |
+
+- `native` is n/a on slides with no vector shape left: their only path, the page
+  rectangle, is now the slide background.
+- Corpus output: 123 connectors, 103 preset shapes, 6 tables, 64 groups, 59 slide
+  backgrounds, 2 SVG pictures, 2 freeforms.
+- Text boxes per slide fell further because each table is one frame (d07: 26 → 2).
+
+**Time.**
+- Conversion per page (balanced, including tuning): median 0.53 s → 0.86 s, mean
+  0.64 s → 1.44 s.
+- Tuning: about 1 s per slide (median 0.96 s, max 3.3 s on d15; M5 0.37 s). Most of it
+  is the slide pass, which now visits every native shape.
+- Shape fitting: ≤ 0.3 s per page, except rotated block arrows (~1 s).
+
+### Examples of remaining misfits
+
+1. **Line-chart series (d15)** stay freeforms: they are open polylines through data
+   points. Native charts are M9.
+2. **Outlined text (d28)** becomes an SVG picture rather than a freeform. It still
+   isn't text (OCR is M8).
+3. **Pie slices (d16) and chart bars** become native `pie` / `rect` shapes, not a chart
+   object (M9).
+4. **The text inside shapes** stays a separate text box (positions kept exactly).
+   Moving it into the shape's own text frame isn't done yet.
+5. **Shadows** stay pictures. Each is grouped with its shape, so it moves with the
+   shape, but it isn't a native `outerShdw`.
+6. **Radial gradients** follow the assumed DrawingML geometry (centre to box corners).
+   Only linear gradients occur in the corpus and the round-trip test.
+7. **Whitespace tables need a numeric column or full-width rules.** A text-only
+   unruled table stays text. This is deliberate: two-column prose and lists must not
+   become tables.
+8. **The fill/stroke merge and connector heads** assume the producer draws them next
+   to each other in z. Interleaved drawing keeps them separate (still visually
+   correct).
+
+### Next
+
+Milestone 7: document structure (masters, theme, sections, notes, links, build
+animations). Starting points:
+
+- **Masters and layouts.** Elements repeated across pages are the candidates: logos,
+  footers, page numbers, and now background fills and grouped shapes. `is_background`
+  and the `mcid:` / `form:` notes help to recognise them.
+- **Theme colours.** Preset fills, strokes and gradient stops are explicit sRGB now. A
+  theme pass can map frequent colours to `accent1..6`.

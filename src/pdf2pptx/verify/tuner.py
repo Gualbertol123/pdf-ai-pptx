@@ -53,6 +53,7 @@ from ..build.units import ppt_spacing
 from ..build.writer import (
     LINE_BREAK,
     SINGLE_LINE,
+    TABLE_SHAPE_PREFIX,
     TEXT_SHAPE_PREFIX,
     TextOptions,
     _drop_hyphens,
@@ -60,7 +61,7 @@ from ..build.writer import (
     write_pptx,
 )
 from ..config import ModeLimits
-from ..ir import Document, Glyph, Image, Page, Paragraph, Shape, TextBlock
+from ..ir import Document, Glyph, Image, Page, Paragraph, Shape, Table, TextBlock
 
 LOG = log.get(__name__)
 
@@ -681,6 +682,8 @@ class _BlockState:
     orig: TextBlock
     ref: list[Line]
     best: TextBlock
+    cell: int | None = None  # index in Table.cells when the block is a table cell's text
+    name: str = ""  # PowerPoint shape name (``text_layout``)
     best_eval: Eval | None = None
     first_eval: Eval | None = None
     last_eval: Eval | None = None
@@ -753,10 +756,20 @@ class Tuner:
 
     def _block(self, st: _BlockState) -> TextBlock:
         e = self.doc.pages[st.page].elements[st.index]
+        if st.cell is not None:
+            assert isinstance(e, Table)
+            tb = e.cells[st.cell].text
+            assert tb is not None
+            return tb
         assert isinstance(e, TextBlock)
         return e
 
     def _set_block(self, st: _BlockState, tb: TextBlock) -> None:
+        if st.cell is not None:
+            e = self.doc.pages[st.page].elements[st.index]
+            assert isinstance(e, Table)
+            e.cells[st.cell].text = copy.deepcopy(tb)
+            return
         self.doc.pages[st.page].elements[st.index] = copy.deepcopy(tb)
 
     # -- setup ---------------------------------------------------------------
@@ -767,18 +780,28 @@ class Tuner:
             if page.triage.fallback_image:
                 continue
             glyphs = {g.id: g for g in page.glyphs}
-            for idx, e in enumerate(page.elements):
-                if not isinstance(e, TextBlock) or e.rotation or e.vertical:
+            for idx, el in enumerate(page.elements):
+                # text boxes, and table cells (named "<table name>[row,col]", 1-based)
+                if isinstance(el, Table):
+                    items = [(ci, c.text, f"{TABLE_SHAPE_PREFIX}{el.id}[{c.row + 1},{c.col + 1}]")
+                             for ci, c in enumerate(el.cells)
+                             if c.text is not None and c.merged_into is None]
+                elif isinstance(el, TextBlock):
+                    items = [(None, el, f"{TEXT_SHAPE_PREFIX}{el.id}")]
+                else:
                     continue
-                if not any(_ns(r.text) for p in e.paragraphs for r in p.runs):
-                    continue
-                if any(LINE_BREAK in r.text for p in e.paragraphs for r in p.runs):
-                    continue
-                ref = pdf_lines(e, glyphs, keep)
-                if ref is None:
-                    continue
-                self.states[e.id] = _BlockState(page.index, idx, copy.deepcopy(e), ref,
-                                                copy.deepcopy(e))
+                for ci, e, name in items:
+                    if e is None or e.rotation or e.vertical:
+                        continue
+                    if not any(_ns(r.text) for p in e.paragraphs for r in p.runs):
+                        continue
+                    if any(LINE_BREAK in r.text for p in e.paragraphs for r in p.runs):
+                        continue
+                    ref = pdf_lines(e, glyphs, keep)
+                    if ref is None:
+                        continue
+                    self.states[e.id] = _BlockState(page.index, idx, copy.deepcopy(e), ref,
+                                                    copy.deepcopy(e), cell=ci, name=name)
         self.rep.blocks = len(self.states)
 
     # -- measuring -----------------------------------------------------------
@@ -811,7 +834,7 @@ class Tuner:
         for bid, st in sorted(self.states.items()):
             if st.page not in layouts or st.frozen:
                 continue
-            shape = layouts[st.page].get(f"{TEXT_SHAPE_PREFIX}{bid}")
+            shape = layouts[st.page].get(st.name or f"{TEXT_SHAPE_PREFIX}{bid}")
             if shape is None:
                 continue
             tb = self._block(st)
@@ -1072,6 +1095,10 @@ class Tuner:
             got = align(img, (page.width, page.height), self._slide_wh(),
                         (ref.shape[1], ref.shape[0]))
             found = []
+            from .metrics import to_gray
+
+            ref = to_gray(ref).astype(np.float32)
+            got = to_gray(got).astype(np.float32)
             for idx, e in enumerate(page.elements):
                 if not isinstance(e, (Shape, Image)) or e.is_background:
                     continue
@@ -1169,7 +1196,9 @@ def element_shift(ref: np.ndarray, got: np.ndarray, bbox: Sequence[float], dpi: 
         return None
     if x0 - radius < 0 or y0 - radius < 0 or x1 + radius > w or y1 + radius > h:
         return None
-    ga, gb = to_gray(ref).astype(np.float32), to_gray(got).astype(np.float32)
+    # 2-D inputs are already grayscale float32 (the slide pass converts once per page)
+    ga = ref if ref.ndim == 2 else to_gray(ref).astype(np.float32)
+    gb = got if got.ndim == 2 else to_gray(got).astype(np.float32)
     tpl = ga[y0:y1, x0:x1]
     if float(tpl.std()) < 8.0:
         return None

@@ -527,8 +527,10 @@ def _collect_shape(shape: Any, out: list[TextShape],
         return
     sid = int(raw(shape, "Shape", "Id"))
     if raw(shape, "Shape", "HasTable"):
-        # Measured (M1): table cell text bounds are relative to the cell; x already
-        # includes the left margin, y does not include the top margin.
+        # Measured (M1, M6): table cell text bounds are relative to the cell; x already
+        # includes the left margin. BoundTop is (marT - marB) / 2 at the cell's first line
+        # top, so the line top is cell top + BoundTop + (marT + marB) / 2 (M1 only saw
+        # marT = marB, where this equals "+ marT").
         tbl = raw(shape, "Shape", "Table")
         rows, cols = raw(tbl, "Table", "Rows"), raw(tbl, "Table", "Columns")
         n_rows, n_cols = int(raw(rows, "Rows", "Count")), int(raw(cols, "Columns", "Count"))
@@ -548,7 +550,9 @@ def _collect_shape(shape: Any, out: list[TextShape],
                 tf2 = raw(cell_shape, "Shape", "TextFrame2")
                 if raw(tf2, "TextFrame2", "HasText"):
                     margin_top = float(raw(tf2, "TextFrame2", "MarginTop"))
-                    off = (left + sum(widths[: c - 1]), top + sum(heights[: r - 1]) + margin_top)
+                    margin_bottom = float(raw(tf2, "TextFrame2", "MarginBottom"))
+                    off = (left + sum(widths[: c - 1]),
+                           top + sum(heights[: r - 1]) + (margin_top + margin_bottom) / 2)
                     _collect_text_frame(tf2, f"{name}[{r},{c}]", sid, out, off)
         return
     if raw(shape, "Shape", "HasTextFrame"):

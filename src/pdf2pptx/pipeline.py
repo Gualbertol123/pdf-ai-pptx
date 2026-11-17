@@ -29,7 +29,7 @@ LOG = log.get(__name__)
 STAGE_VERSIONS = {
     "ingest": parse.PARSER_VERSION,
     "triage": "2.0",
-    "analyze": "text-4.5",
+    "analyze": "graphics-6.0",
 }
 STAGES = tuple(STAGE_VERSIONS)
 
@@ -89,11 +89,33 @@ def run_stage(work_dir: Path, stage: str, fn: Callable[[], Document], use_cache:
     return doc, False
 
 
-def analyze(doc: Document) -> Document:
-    """M4: fonts, text blocks, lists, roles, reading order. M6+ adds shapes, tables, ..."""
+def analyze(doc: Document, work_dir: Path | None = None) -> Document:
+    """M4: fonts, text blocks, lists, roles, reading order. M6: tables (before text, so
+    cell glyphs are grouped per cell) and graphics (presets, connectors, groups, SVG)."""
+    from .analyze import shapes, tables
     from .analyze.text import analyze_text
+    from .fonts.match import match_document
 
-    doc = analyze_text(doc)
+    matches = match_document(doc)
+    skip: dict[int, set[str]] = {}
+    stats: Counter[str] = Counter()
+    for page in doc.pages:
+        if page.triage.fallback_image:
+            continue
+        try:
+            skip[page.index] = tables.analyze_page(page, doc.fonts, matches)
+        except Exception as exc:  # tables are optional: the page keeps text + shapes
+            LOG.error("page %d: table detection failed (%s: %s)", page.index,
+                      type(exc).__name__, exc, exc_info=LOG.isEnabledFor(10))
+    doc = analyze_text(doc, matches=matches, skip_glyphs=skip)
+    wd = work_dir or Path(".")
+    for page in doc.pages:
+        try:
+            stats.update(shapes.analyze_page(page, wd))
+        except Exception as exc:  # graphics are optional: freeforms stay
+            LOG.error("page %d: shape analysis failed (%s: %s)", page.index,
+                      type(exc).__name__, exc, exc_info=LOG.isEnabledFor(10))
+    doc.metadata["pdf2pptx:graphics"] = json.dumps(dict(sorted(stats.items())), sort_keys=True)
     doc.stage = "analyze"
     return doc
 
@@ -145,7 +167,7 @@ def analyzed(pdf: Path, cfg: Config, *, workers: int | None = None,
     doc, hit = run_stage(work_dir, "triage", lambda: triage.triage_document(doc), use_cache)
     if hit:
         cached.append("triage")
-    doc, hit = run_stage(work_dir, "analyze", lambda: analyze(doc), use_cache)
+    doc, hit = run_stage(work_dir, "analyze", lambda: analyze(doc, work_dir), use_cache)
     if hit:
         cached.append("analyze")
     return doc, work_dir, cached

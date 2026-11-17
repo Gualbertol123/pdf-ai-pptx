@@ -36,7 +36,20 @@ from pptx.util import Emu
 
 from .. import log
 from ..ingest.render import ensure_render
-from ..ir import Bullet, Color, Document, Image, Page, Paragraph, Shape, TextBlock, TextRun
+from ..ir import (
+    Bullet,
+    Color,
+    Document,
+    Fill,
+    Group,
+    Image,
+    Page,
+    Paragraph,
+    Shape,
+    Table,
+    TextBlock,
+    TextRun,
+)
 from . import xml_ext
 from .lines import line_blocks
 from .units import pct_to_ooxml, ppt_spacing, pt_to_centipoints, pt_to_emu
@@ -252,11 +265,11 @@ def _drop_hyphens(para: Paragraph) -> list[TextRun]:
 
 def _add_text(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]],
               opts: TextOptions | None = None, work_dir: Path | None = None,
-              pictures: dict[str, Image] | None = None) -> None:
+              pictures: dict[str, Image] | None = None, shapes: Any = None) -> None:
     opts = opts or TextOptions()
     x0, y0, x1, y1 = tb.bbox
-    shape = slide.shapes.add_textbox(Emu(xf.x(x0)), Emu(xf.y(y0)), Emu(xf.d(x1 - x0)),
-                                     Emu(xf.d(y1 - y0)))
+    shape = (shapes if shapes is not None else slide.shapes).add_textbox(
+        Emu(xf.x(x0)), Emu(xf.y(y0)), Emu(xf.d(x1 - x0)), Emu(xf.d(y1 - y0)))
     if tb.rotation:
         shape.rotation = tb.rotation
     baseline = "baseline_line" in tb.notes
@@ -269,6 +282,13 @@ def _add_text(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]
     ml, mt, mr, mb = tb.margins
     tf.margin_left, tf.margin_top = Emu(xf.d(ml)), Emu(xf.d(mt))
     tf.margin_right, tf.margin_bottom = Emu(xf.d(mr)), Emu(xf.d(mb))
+    _fill_frame(tf, tb, xf, internal, opts, slide, work_dir, pictures, shape, baseline)
+
+
+def _fill_frame(tf: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]],
+                opts: TextOptions, slide: Any, work_dir: Path | None,
+                pictures: dict[str, Image] | None, shape: Any, baseline: bool = False) -> None:
+    """Paragraphs and runs of ``tb`` into a text frame (text box or table cell)."""
     for pi, para in enumerate(tb.paragraphs):
         p = tf.paragraphs[0] if pi == 0 else tf.add_paragraph()
         if not baseline:
@@ -307,7 +327,7 @@ def _add_text(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]
                 _run_props(r._r.get_or_add_rPr(), run, xf)
             if run.hyperlink and not run.hyperlink.startswith("#slide="):
                 r.hyperlink.address = run.hyperlink
-            elif run.hyperlink:
+            elif run.hyperlink and shape is not None:
                 internal.append((shape, int(run.hyperlink.split("=", 1)[1]) - 1))
 
 
@@ -318,7 +338,7 @@ def _add_run(p: Any, run: TextRun, text: str, xf: _Xf, shape: Any,
     _run_props(r._r.get_or_add_rPr(), run, xf)
     if run.hyperlink and not run.hyperlink.startswith("#slide="):
         r.hyperlink.address = run.hyperlink
-    elif run.hyperlink:
+    elif run.hyperlink and shape is not None:
         internal.append((shape, int(run.hyperlink.split("=", 1)[1]) - 1))
 
 
@@ -346,27 +366,107 @@ def _path_cmds(shape: Shape, xf: _Xf) -> tuple[str, bool]:
     return "".join(out), closed
 
 
-def _add_freeform(slide: Any, shape: Shape, xf: _Xf) -> bool:
+def _add_freeform(slide: Any, shape: Shape, xf: _Xf, shapes: Any = None) -> bool:
+    shapes = shapes if shapes is not None else slide.shapes
     if not shape.path:
         return False
     cmds, _closed = _path_cmds(shape, xf)
     if not cmds:
         return False
     x0, y0, x1, y1 = shape.bbox
-    fill = shape.fill.color if shape.fill.kind == "solid" else None
-    sid = slide.shapes._next_shape_id
+    fill: Any = shape.fill if shape.fill.kind in ("solid", "gradient") else None
+    if fill is not None and shape.opacity < 0.9995 and fill.color is not None:
+        fill = Fill(kind="solid", color=Color(rgb=fill.color.rgb,
+                                              alpha=fill.color.alpha * shape.opacity))
+    sid = shapes._next_shape_id
     el = xml_ext.freeform(sid, f"Freeform {sid}", (xf.x(x0), xf.y(y0)),
                           (xf.d(x1 - x0), xf.d(y1 - y0)), cmds, fill, shape.stroke,
                           stroke_scale=xf.s)
-    slide.shapes._spTree.append(el)
+    shapes._spTree.append(el)
     return True
 
 
-def _add_picture(slide: Any, img: Image, xf: _Xf, work_dir: Path) -> None:
+_PRESET_NAMES = {"rect": "Rectangle", "roundRect": "Rounded Rectangle", "ellipse": "Oval",
+                 "line": "Straight Connector", "bentConnector2": "Elbow Connector",
+                 "bentConnector3": "Elbow Connector"}
+
+
+@dataclass
+class _Ids:
+    """IR id -> written shape id, and connectors whose references are patched last."""
+
+    sids: dict[str, int] = field(default_factory=dict)
+    pending: list[tuple[Any, Shape]] = field(default_factory=list)
+
+    def patch(self) -> None:
+        for el, e in self.pending:
+            c = e.connector
+            if c is None:
+                continue
+            st = (self.sids[c.start_id], c.start_site or 0) if c.start_id in self.sids else None
+            en = (self.sids[c.end_id], c.end_site or 0) if c.end_id in self.sids else None
+            if st or en:
+                xml_ext.set_connection(el, st, en)
+
+
+def _add_shape(shapes: Any, e: Shape, xf: _Xf, ids: _Ids, locked: bool = False) -> str | None:
+    """A preset shape, connector or freeform. Returns the count key, or None."""
+    if e.fill.kind == "pattern":
+        return None  # drawn by its raster image
+    if not e.preset:
+        return "freeforms" if _add_freeform(None, e, xf, shapes) else None
+    x0, y0, x1, y1 = e.bbox
+    off, ext = (xf.x(x0), xf.y(y0)), (xf.d(x1 - x0), xf.d(y1 - y0))
+    sid = shapes._next_shape_id
+    name = f"{_PRESET_NAMES.get(e.preset, e.preset[:1].upper() + e.preset[1:])} {sid}"
+    if e.connector is not None:
+        el = xml_ext.connector(sid, name, off, ext, e.preset, e.adjust, e.stroke,
+                               rot=e.rotation, flip_h=e.flip_h, flip_v=e.flip_v,
+                               stroke_scale=xf.s)
+        ids.pending.append((el, e))
+        key = "connectors"
+    else:
+        el = xml_ext.preset_shape(sid, name, off, ext, e.preset, e.adjust, e.fill, e.stroke,
+                                  rot=e.rotation, flip_h=e.flip_h, flip_v=e.flip_v,
+                                  stroke_scale=xf.s, opacity=e.opacity, locked=locked)
+        key = "preset_shapes"
+    shapes._spTree.append(el)
+    ids.sids[e.id] = sid
+    return key
+
+
+def _covers_slide(page: Page, xf: _Xf, sw: float, sh: float) -> bool:
+    return abs(page.width * xf.s - sw) < 0.5 and abs(page.height * xf.s - sh) < 0.5
+
+
+def _add_background(slide: Any, e: Shape | Image, page: Page, xf: _Xf, sw: float, sh: float,
+                    work_dir: Path, ids: _Ids) -> str:
+    if _covers_slide(page, xf, sw, sh):
+        if isinstance(e, Shape):
+            xml_ext.background(slide, fill=e.fill)
+        else:
+            _, rid = slide.part.get_or_add_image_part(str(work_dir / e.file))
+            xml_ext.background(slide, image_rid=rid)
+        return "backgrounds"
+    if isinstance(e, Shape):
+        _add_shape(slide.shapes, e, xf, ids, locked=True)
+    else:
+        pic = _add_picture(slide, e, xf, work_dir)
+        xml_ext.lock_picture(pic._element)
+    return "locked_backgrounds"
+
+
+def _add_picture(slide: Any, img: Image, xf: _Xf, work_dir: Path, shapes: Any = None) -> Any:
+    shapes = shapes if shapes is not None else slide.shapes
     x0, y0, x1, y1 = img.bbox
     path = work_dir / img.file
-    pic = slide.shapes.add_picture(str(path), Emu(xf.x(x0)), Emu(xf.y(y0)),
-                                   Emu(max(xf.d(x1 - x0), 1)), Emu(max(xf.d(y1 - y0), 1)))
+    pic = shapes.add_picture(str(path), Emu(xf.x(x0)), Emu(xf.y(y0)),
+                             Emu(max(xf.d(x1 - x0), 1)), Emu(max(xf.d(y1 - y0), 1)))
+    if img.svg_file:
+        svg = (work_dir / img.svg_file).read_bytes()
+        rid = xml_ext.add_svg_part(shapes.part, svg)
+        blip = pic._element.find(qn("p:blipFill")).find(qn("a:blip"))
+        xml_ext.svg_blip(blip, rid)
     cl, ct, cr, cb = img.crop
     if any(img.crop):
         # The frame already shows only the visible part: crop = the hidden fractions.
@@ -379,6 +479,98 @@ def _add_picture(slide: Any, img: Image, xf: _Xf, work_dir: Path) -> None:
             xfrm.set("flipH", "1")
         if img.flip_v:
             xfrm.set("flipV", "1")
+    return pic
+
+
+TABLE_SHAPE_PREFIX = "Table "  # + the table id: the tuner maps cells by this name
+
+
+def table_cell_rect(t: Table, row: int, col: int, row_span: int = 1,
+                    col_span: int = 1) -> tuple[float, float, float, float]:
+    x0 = t.bbox[0] + sum(t.col_widths[:col])
+    y0 = t.bbox[1] + sum(t.row_heights[:row])
+    return (x0, y0, x0 + sum(t.col_widths[col:col + col_span]),
+            y0 + sum(t.row_heights[row:row + row_span]))
+
+
+def cell_margins(t: Table, cell: Any) -> tuple[float, float, float, float]:
+    """Cell margins (pt) that put the cell's text frame where ``cell.text.bbox`` is."""
+    if cell.text is None:
+        return cell.margins
+    cx0, cy0, cx1, _ = table_cell_rect(t, cell.row, cell.col, cell.row_span, cell.col_span)
+    tx0, ty0, tx1, _ = cell.text.bbox
+    ml, mr = max(tx0 - cx0, 0.0), max(cx1 - tx1, 0.0)
+    # Measured (M6): PowerPoint widens a merged cell's last column until it holds
+    # marL + marR, so a spanning cell keeps both within that column's width
+    last = t.col_widths[cell.col + cell.col_span - 1]
+    excess = ml + mr - max(last - 1.0, 0.0)
+    if cell.col_span > 1 and excess > 0:
+        cut = min(mr, excess)
+        mr -= cut
+        ml = max(ml - (excess - cut), 0.0)
+    return ml, max(ty0 - cy0, 0.0), mr, 0.0
+
+
+def _add_table(slide: Any, t: Table, xf: _Xf, internal: list[tuple[Any, int]],
+               opts: TextOptions, work_dir: Path, pictures: dict[str, Image]) -> None:
+    """A native table: column widths, row heights, merges, fills, borders, cell margins
+    from the cell text's frame (``TableCell.text.bbox``), and the cell paragraphs."""
+    n_rows, n_cols = len(t.row_heights), len(t.col_widths)
+    x0, y0, x1, y1 = t.bbox
+    gf = slide.shapes.add_table(n_rows, n_cols, Emu(xf.x(x0)), Emu(xf.y(y0)),
+                                Emu(xf.d(x1 - x0)), Emu(xf.d(y1 - y0)))
+    gf.name = f"{TABLE_SHAPE_PREFIX}{t.id}"
+    tbl = gf.table
+    xml_ext.plain_table(tbl)
+    for c, w in enumerate(t.col_widths):
+        tbl.columns[c].width = Emu(xf.d(w))
+    for r, h in enumerate(t.row_heights):
+        tbl.rows[r].height = Emu(xf.d(h))
+    cells = {(c.row, c.col): c for c in t.cells}
+    for c in t.cells:
+        if c.merged_into is None and (c.row_span > 1 or c.col_span > 1):
+            tbl.cell(c.row, c.col).merge(tbl.cell(c.row + c.row_span - 1,
+                                                  c.col + c.col_span - 1))
+    for r in range(n_rows):
+        for col in range(n_cols):
+            ic = cells.get((r, col))
+            if ic is None:
+                continue
+            cell = tbl.cell(r, col)
+            _, cy0, _, cy1 = table_cell_rect(t, r, col, ic.row_span, ic.col_span)
+            ml, mt, mr, mb = cell_margins(t, ic)
+            xml_ext.cell_props(cell._tc, margins=(xf.d(ml), xf.d(mt), xf.d(mr), xf.d(mb)),
+                               anchor=ic.anchor, borders=dict(ic.borders), fill=ic.fill,
+                               stroke_scale=xf.s)
+            tf = cell.text_frame
+            if ic.text is not None and ic.merged_into is None:
+                _fill_frame(tf, ic.text, xf, internal, opts, slide, work_dir, pictures, None)
+            # an empty paragraph mark must not make the row taller than the PDF's
+            room = max((cy1 - cy0 - mt - mb) / SINGLE_LINE * 0.9, 1.0)
+            for p in tf.paragraphs:
+                end = p._p.get_or_add_endParaRPr()
+                if not p.runs:
+                    end.set("sz", str(pt_to_centipoints(min(room, 10.0) * xf.s)))
+
+
+def _write_element(slide: Any, shapes: Any, e: Any, xf: _Xf,
+                   internal: list[tuple[Any, int]], rep: WriteReport, opts: TextOptions,
+                   work_dir: Path, pictures: dict[str, Image], ids: _Ids) -> None:
+    if isinstance(e, TextBlock):
+        _add_text(slide, e, xf, internal, opts, work_dir, pictures, shapes)
+        rep.counts["text_boxes"] += 1
+    elif isinstance(e, Image):
+        _add_picture(slide, e, xf, work_dir, shapes)
+        rep.counts["svg_pictures" if e.svg_file else "pictures"] += 1
+    elif isinstance(e, Shape):
+        key = _add_shape(shapes, e, xf, ids)
+        if key:
+            rep.counts[key] += 1
+    elif isinstance(e, Table):
+        _add_table(slide, e, xf, internal, opts, work_dir, pictures)
+        rep.counts["tables"] += 1
+    else:
+        rep.counts[f"skipped_{e.kind}"] += 1
 
 
 def _add_fallback(slide: Any, page: Page, pdf: Path, work_dir: Path, sw: float,
@@ -410,22 +602,35 @@ def _build_page(slide: Any, page: Page, doc: Document, work_dir: Path, sw: float
         items = [e for e in items if not isinstance(e, TextBlock)]
         items.extend(line_blocks(page, doc.fonts))
     pictures = {e.id: e for e in page.elements if isinstance(e, Image)}
+    ids = _Ids()
+    present = {e.id for e in items}
+    groups = [g for g in items if isinstance(g, Group)
+              and sum(1 for c in g.child_ids if c in present) >= 2]
+    child_of = {c: g.id for g in groups for c in g.child_ids if c in present}
+    by_id = {e.id: e for e in items}
+    top = [e for e in items if e.id not in child_of and not (
+        isinstance(e, Group) and e not in groups)]
     # stable: by z; text ties broken by reading order
-    order = sorted(range(len(items)), key=lambda i: (
-        items[i].z, getattr(items[i], "reading_order", None) or 0, i))
+    order = sorted(range(len(top)), key=lambda i: (
+        top[i].z, getattr(top[i], "reading_order", None) or 0, i))
     for i in order:
-        e = items[i]
-        if isinstance(e, TextBlock):
-            _add_text(slide, e, xf, internal, opts, work_dir, pictures)
-            rep.counts["text_boxes"] += 1
-        elif isinstance(e, Image):
-            _add_picture(slide, e, xf, work_dir)
-            rep.counts["pictures"] += 1
-        elif isinstance(e, Shape):
-            if _add_freeform(slide, e, xf):
-                rep.counts["freeforms"] += 1
+        e = top[i]
+        if isinstance(e, (Shape, Image)) and e.is_background:
+            rep.counts[_add_background(slide, e, page, xf, sw, sh, work_dir, ids)] += 1
+        elif isinstance(e, Group):
+            grp = slide.shapes.add_group_shape()
+            grp.name = f"Group {grp.shape_id}"
+            kids = sorted((by_id[c] for c in e.child_ids if c in by_id),
+                          key=lambda k: (k.z, k.id))
+            for k in kids:
+                _write_element(slide, grp.shapes, k, xf, internal, rep, opts, work_dir,
+                               pictures, ids)
+            grp.shapes._recalculate_extents()
+            rep.counts["groups"] += 1
         else:
-            rep.counts[f"skipped_{e.kind}"] += 1
+            _write_element(slide, slide.shapes, e, xf, internal, rep, opts, work_dir,
+                           pictures, ids)
+    ids.patch()
 
 
 def write_pptx(doc: Document, out: Path, work_dir: Path, pdf: Path,

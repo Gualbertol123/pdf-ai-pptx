@@ -55,7 +55,13 @@ def test_convert_end_to_end(two_pages: Path, tmp_path: Path) -> None:
     box = next(sh for sh in s.shapes if sh.has_text_frame and sh.text_frame.text == "Left")
     tf = box.text_frame
     assert tf.word_wrap is True and tf.margin_left == 0 and tf.margin_top == 0
-    assert any(sh.shape_type == MSO_SHAPE_TYPE.FREEFORM for sh in s.shapes)
+    # M6: reportlab's circle (a fill path + the same path stroked) is one native ellipse
+    from pptx.oxml.ns import qn
+
+    ovals = [sh for sh in s.shapes if sh.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE
+             and sh._element.spPr.find(qn("a:prstGeom")).get("prst") == "ellipse"]
+    assert len(ovals) == 1 and ovals[0]._element.spPr.find(qn("a:ln")).get("w") is not None
+    assert not any(sh.shape_type == MSO_SHAPE_TYPE.FREEFORM for sh in s.shapes)
     work = cfg.work_dir / pipeline.sha256_file(two_pages)
     for stage in ("ingest", "triage", "analyze", "build"):
         assert (work / f"ir_{stage}.json").is_file()

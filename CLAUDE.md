@@ -16,7 +16,7 @@ the latest PROGRESS.md entry before starting a prompt.
 .venv\Scripts\pdf2pptx convert --corpus --no-cache     # ~12 s -> out/corpus, + PowerPoint open check
 .venv\Scripts\pdf2pptx score --corpus --against truth|blank|out --label NAME [--as-baseline]
 .venv\Scripts\pdf2pptx report a.pdf [b.pdf ...]          # -> out/report/<stem>.html (+ index.html)
-.venv\Scripts\pdf2pptx structure [--no-cache]          # paragraphs/levels/fonts vs synthetic truth
+.venv\Scripts\pdf2pptx structure [--no-cache]          # paragraphs/levels/fonts + presets/tables vs truth
 .venv\Scripts\pdf2pptx convert ... --text-layout lines  # the M2 one-box-per-line baseline
 .venv\Scripts\pdf2pptx convert ... --tune/--no-tune --tune-rounds N   # M5 tuner (on: fidelity, balanced)
 .venv\Scripts\pdf2pptx convert --corpus --mode fidelity --out-dir out/fidelity  # then score --out-dir out/fidelity
@@ -72,3 +72,14 @@ milestone must beat. Re-run them if missing.
   arguments silently (it broke the tuner's `Line`); build such objects with keywords.
 - While iterating on `analyze/`, run `convert`/`structure` with `--no-cache` (or bump
   `STAGE_VERSIONS["analyze"]`): the analyze cache key is the stage version only.
+- Graphics/tables (M6): `analyze` runs fonts → tables → text (table glyphs skipped) →
+  shapes. Table cells are `Table <id>[r,c]` in COM layouts; cell margins are derived
+  from `TableCell.text.bbox` (`writer.cell_margins`). COM cell `BoundTop` is
+  `(marT − marB)/2` relative to the cell; PowerPoint widens a merged cell's last column
+  to hold marL + marR. Details: PROGRESS.md M6.
+- PowerPoint's PDF export draws lines with arrowheads as filled outlines (body + head
+  polygons); `shapes.decode_outlined` turns them back into connectors. Pattern fills
+  are kept as `Fill(kind="pattern")` shapes (not drawn) next to their raster.
+- Scripts that start the COM worker need an `if __name__ == "__main__":` guard
+  (multiprocessing spawn). Shell heredocs choke on some quoting: write longer files
+  with the editor tools instead.

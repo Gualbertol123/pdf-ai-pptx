@@ -236,3 +236,29 @@ def test_element_shift_finds_a_consistent_offset() -> None:
     assert tuner.element_shift(ref, ref, bbox, 150) is None  # already in place
     flat = np.full_like(ref, 255)
     assert tuner.element_shift(flat, flat, bbox, 150) is None  # nothing to match
+
+
+@pytest.mark.powerpoint
+@pytest.mark.corpus
+def test_table_cells_are_tuned(tmp_path: Path) -> None:
+    """A table cell's text moved 3 pt down / 2 pt right is put back by the tuner
+    (cells map to PowerPoint's "Table <id>[r,c]" layout shapes)."""
+    from pdf2pptx.ir import Table
+    from pdf2pptx.pipeline import analyzed
+
+    cfg = load_config()
+    pdf = next(cfg.corpus_dir.rglob("d07_table_simple.pdf"))
+    doc, wd, _ = analyzed(pdf, cfg)
+    table = next(e for e in doc.pages[0].elements if isinstance(e, Table))
+    cell = next(c for c in table.cells if c.row == 2 and c.col == 1)
+    assert cell.text is not None
+    x0, y0, x1, y1 = cell.text.bbox
+    cell.text.bbox = (x0 + 2, y0 + 3, x1 + 2, y1 + 3)
+    rep = _run(doc, wd, pdf, tmp_path / "t.pptx", "balanced")
+    st = rep._tuner.states[cell.text.id]  # type: ignore[attr-defined]
+    assert st.cell is not None and st.first_eval is not None and st.best_eval is not None
+    assert st.first_eval.pos is not None and st.first_eval.pos > 2.0
+    assert st.best_eval.ok
+    fixed = next(e for e in doc.pages[0].elements if isinstance(e, Table)).cells[
+        table.cells.index(cell)].text
+    assert fixed is not None and fixed.source == "tuner"
