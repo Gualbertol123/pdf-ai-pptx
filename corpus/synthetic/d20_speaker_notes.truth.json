@@ -1,8 +1,14 @@
 {
  "aspect": "16:9",
  "category": "synthetic_deck",
+ "core": {
+  "author": "pdf2pptx corpus",
+  "title": "Speaker notes demo"
+ },
  "features": [
-  "speaker_notes"
+  "speaker_notes",
+  "pdf_comments",
+  "core_properties"
  ],
  "name": "d20_speaker_notes",
  "sections": [],

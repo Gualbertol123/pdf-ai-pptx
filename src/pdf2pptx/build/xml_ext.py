@@ -11,6 +11,7 @@ checks that it loads without repair and renders.
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from typing import Any
 from xml.sax.saxutils import quoteattr
 
@@ -33,8 +34,16 @@ _HEADS = {"triangle", "stealth", "diamond", "oval", "arrow"}
 _SIZES = {"sm", "med", "lg"}
 
 
+# M7: while set, colours with ``Color.theme`` are written as theme references
+# (``writer.write_pptx`` sets it in editable / balanced mode).
+THEME_REFS: ContextVar[bool] = ContextVar("theme_refs", default=False)
+SCHEME_NAMES = {"dk1": "tx1", "lt1": "bg1", "dk2": "tx2", "lt2": "bg2"}
+
+
 def srgb_xml(c: Color) -> str:
     alpha = "" if c.alpha >= 0.9995 else f'<a:alpha val="{pct_to_ooxml(max(c.alpha, 0.0))}"/>'
+    if c.theme and THEME_REFS.get():
+        return f'<a:schemeClr val="{SCHEME_NAMES.get(c.theme, c.theme)}">{alpha}</a:schemeClr>'
     return f'<a:srgbClr val="{(c.rgb or "000000").upper()}">{alpha}</a:srgbClr>'
 
 
@@ -65,7 +74,7 @@ def fill_xml(fill: Fill | None, opacity: float = 1.0) -> str:
         return gradient_xml(fill.gradient)
     c = fill.color or Color(rgb="000000")
     if opacity < 0.9995:
-        c = Color(rgb=c.rgb, alpha=c.alpha * opacity)
+        c = Color(rgb=c.rgb, theme=c.theme, alpha=c.alpha * opacity)
     return color_xml(c)
 
 

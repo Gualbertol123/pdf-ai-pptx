@@ -23,6 +23,7 @@ import hashlib
 import io
 import zipfile
 from collections import Counter
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -30,11 +31,13 @@ from typing import Any
 from lxml import etree
 from pptx import Presentation
 from pptx.dml.color import RGBColor
-from pptx.enum.text import MSO_AUTO_SIZE
+from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE
 from pptx.oxml.ns import qn
+from pptx.shapes.shapetree import SlideShapeFactory, SlideShapes
 from pptx.util import Emu
 
 from .. import log
+from ..analyze.builds import absorbed_pages, element_step, page_to_slide, paragraph_steps
 from ..ingest.render import ensure_render
 from ..ir import (
     Bullet,
@@ -50,7 +53,7 @@ from ..ir import (
     TextBlock,
     TextRun,
 )
-from . import xml_ext
+from . import structure, xml_ext
 from .lines import line_blocks
 from .units import pct_to_ooxml, ppt_spacing, pt_to_centipoints, pt_to_emu
 
@@ -90,17 +93,38 @@ class _Xf:
 
 @dataclass
 class TextOptions:
-    """What the writer may do with text, from the mode."""
+    """What the writer may do, from the mode (text, and since M7 the deck structure)."""
 
     layout: str = "blocks"  # blocks | lines (the M2 baseline, for comparison)
     autofit: str = "none"  # none | shrink
     keep_hyphens: bool = True  # False: drop end-of-line hyphenation (editable)
+    # M7. structure: slide master / layouts with the repeated elements, slide-number
+    # placeholders. placeholders: title / body text in placeholders. theme_refs: colours
+    # and fonts as theme references. builds: build-up pages collapsed into animations.
+    structure: bool = True
+    placeholders: bool = False
+    theme_refs: bool = False
+    builds: bool = False
+    slide_no: int | None = None  # set per slide by the writer (slide-number fields)
 
     @classmethod
-    def for_mode(cls, mode: str, layout: str = "blocks") -> TextOptions:
+    def for_mode(cls, mode: str, layout: str = "blocks", *, builds: bool | None = None,
+                 structure: bool = True) -> TextOptions:
+        from ..config import MODE_LIMITS
+
         editable = mode in ("editable", "deck")
+        lim = MODE_LIMITS[mode]
+        structured = structure and layout == "blocks"
         return cls(layout=layout, autofit="shrink" if editable else "none",
-                   keep_hyphens=not editable)
+                   keep_hyphens=not editable, structure=structured,
+                   placeholders=structured and lim.use_placeholders,
+                   theme_refs=structured and lim.use_theme,
+                   builds=structured and (lim.builds if builds is None else builds))
+
+    def flat(self) -> TextOptions:
+        """One slide per page, everything on the slides (the tuner's deck, M5/M6 output)."""
+        return dataclasses.replace(self, structure=False, placeholders=False,
+                                   theme_refs=False, builds=False)
 
 
 @dataclass
@@ -155,7 +179,25 @@ def _el(parent: Any, tag: str, **attrs: str) -> Any:
 
 
 def _srgb(parent: Any, c: Color) -> None:
+    if c.theme and xml_ext.THEME_REFS.get():
+        _el(parent, "a:schemeClr", val=xml_ext.SCHEME_NAMES.get(c.theme, c.theme))
+        return
     _el(parent, "a:srgbClr", val=(c.rgb or "000000").upper())
+
+
+# M7: (major, minor) theme fonts while theme references are on (set by write_pptx)
+THEME_FONTS: ContextVar[tuple[str | None, str | None]] = ContextVar("theme_fonts",
+                                                                     default=(None, None))
+
+
+def _typeface(font: str) -> str:
+    if xml_ext.THEME_REFS.get():
+        major, minor = THEME_FONTS.get()
+        if font == minor:
+            return "+mn-lt"
+        if font == major:
+            return "+mj-lt"
+    return font
 
 
 def _para_props(p: Any, para: Paragraph, xf: _Xf, opts: TextOptions, slide: Any,
@@ -235,7 +277,7 @@ def _run_props(rpr: Any, run: TextRun, xf: _Xf) -> None:
         rpr.set("spc", str(pt_to_centipoints(run.char_spacing * xf.s)))
     _srgb(_el(rpr, "a:solidFill"), run.color)
     if run.font:
-        _el(rpr, "a:latin", typeface=run.font)
+        _el(rpr, "a:latin", typeface=_typeface(run.font))
         _el(rpr, "a:cs", typeface=run.font)
 
 
@@ -263,10 +305,30 @@ def _drop_hyphens(para: Paragraph) -> list[TextRun]:
     return runs
 
 
+def _placeholder_kind(tb: TextBlock, opts: TextOptions) -> str | None:
+    """The placeholder ``tb`` is written into (M7), or None for a text box."""
+    if not opts.structure or tb.placeholder not in structure.PH:
+        return None
+    if tb.placeholder == "sldNum" or opts.placeholders:
+        return tb.placeholder
+    return None
+
+
 def _add_text(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]],
               opts: TextOptions | None = None, work_dir: Path | None = None,
-              pictures: dict[str, Image] | None = None, shapes: Any = None) -> None:
+              pictures: dict[str, Image] | None = None, shapes: Any = None) -> Any:
     opts = opts or TextOptions()
+    shape = _text_box(slide, tb, xf, internal, opts, work_dir, pictures, shapes)
+    kind = _placeholder_kind(tb, opts)
+    if kind is not None:
+        shape.text_frame.vertical_anchor = MSO_ANCHOR.TOP
+        structure.to_placeholder(shape._element, kind)
+    return shape
+
+
+def _text_box(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]],
+              opts: TextOptions, work_dir: Path | None, pictures: dict[str, Image] | None,
+              shapes: Any) -> Any:
     x0, y0, x1, y1 = tb.bbox
     shape = (shapes if shapes is not None else slide.shapes).add_textbox(
         Emu(xf.x(x0)), Emu(xf.y(y0)), Emu(xf.d(x1 - x0)), Emu(xf.d(y1 - y0)))
@@ -283,6 +345,7 @@ def _add_text(slide: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]
     tf.margin_left, tf.margin_top = Emu(xf.d(ml)), Emu(xf.d(mt))
     tf.margin_right, tf.margin_bottom = Emu(xf.d(mr)), Emu(xf.d(mb))
     _fill_frame(tf, tb, xf, internal, opts, slide, work_dir, pictures, shape, baseline)
+    return shape
 
 
 def _fill_frame(tf: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]],
@@ -299,7 +362,11 @@ def _fill_frame(tf: Any, tb: TextBlock, xf: _Xf, internal: list[tuple[Any, int]]
             text = LINE_BREAK.join(_xml_safe(t) for t in run.text.split(LINE_BREAK))
             if not text:
                 continue
-            if run.field_type and not baseline:
+            # a slide-number field only where it shows the PDF's number (M7: build
+            # collapsing renumbers the slides after a build-up)
+            if run.field_type and not baseline and (
+                    run.field_type != "slidenum" or opts.slide_no is None
+                    or text.strip() == str(opts.slide_no)):
                 _field(p, run, text, xf, f"{tb.id}/{pi}/{ri}")
                 continue
             if LINE_BREAK in text and not baseline:  # forced line breaks (tuner, fidelity)
@@ -376,7 +443,7 @@ def _add_freeform(slide: Any, shape: Shape, xf: _Xf, shapes: Any = None) -> bool
     x0, y0, x1, y1 = shape.bbox
     fill: Any = shape.fill if shape.fill.kind in ("solid", "gradient") else None
     if fill is not None and shape.opacity < 0.9995 and fill.color is not None:
-        fill = Fill(kind="solid", color=Color(rgb=fill.color.rgb,
+        fill = Fill(kind="solid", color=Color(rgb=fill.color.rgb, theme=fill.color.theme,
                                               alpha=fill.color.alpha * shape.opacity))
     sid = shapes._next_shape_id
     el = xml_ext.freeform(sid, f"Freeform {sid}", (xf.x(x0), xf.y(y0)),
@@ -512,7 +579,7 @@ def cell_margins(t: Table, cell: Any) -> tuple[float, float, float, float]:
 
 
 def _add_table(slide: Any, t: Table, xf: _Xf, internal: list[tuple[Any, int]],
-               opts: TextOptions, work_dir: Path, pictures: dict[str, Image]) -> None:
+               opts: TextOptions, work_dir: Path, pictures: dict[str, Image]) -> Any:
     """A native table: column widths, row heights, merges, fills, borders, cell margins
     from the cell text's frame (``TableCell.text.bbox``), and the cell paragraphs."""
     n_rows, n_cols = len(t.row_heights), len(t.col_widths)
@@ -551,26 +618,49 @@ def _add_table(slide: Any, t: Table, xf: _Xf, internal: list[tuple[Any, int]],
                 end = p._p.get_or_add_endParaRPr()
                 if not p.runs:
                     end.set("sz", str(pt_to_centipoints(min(room, 10.0) * xf.s)))
+    return gf
 
 
 def _write_element(slide: Any, shapes: Any, e: Any, xf: _Xf,
                    internal: list[tuple[Any, int]], rep: WriteReport, opts: TextOptions,
-                   work_dir: Path, pictures: dict[str, Image], ids: _Ids) -> None:
+                   work_dir: Path, pictures: dict[str, Image], ids: _Ids) -> int | None:
+    """Write one element; returns its shape id (None when nothing was drawn)."""
+    sid: int | None = None
+    proxy: Any = None
     if isinstance(e, TextBlock):
-        _add_text(slide, e, xf, internal, opts, work_dir, pictures, shapes)
-        rep.counts["text_boxes"] += 1
+        box = _add_text(slide, e, xf, internal, opts, work_dir, pictures, shapes)
+        sid = box.shape_id
+        kind = _placeholder_kind(e, opts)
+        rep.counts["text_boxes" if kind is None else f"placeholders_{kind}"] += 1
     elif isinstance(e, Image):
-        _add_picture(slide, e, xf, work_dir, shapes)
+        proxy = _add_picture(slide, e, xf, work_dir, shapes)
+        sid = proxy.shape_id
         rep.counts["svg_pictures" if e.svg_file else "pictures"] += 1
     elif isinstance(e, Shape):
+        n = len(shapes._spTree)
         key = _add_shape(shapes, e, xf, ids)
         if key:
             rep.counts[key] += 1
+            el = shapes._spTree[n] if len(shapes._spTree) > n else None
+            if el is not None and el.tag != qn("p:cxnSp"):
+                proxy = SlideShapeFactory(el, shapes)
+                sid = proxy.shape_id
+            elif el is not None:
+                sid = int(el.find(".//" + qn("p:cNvPr")).get("id"))
     elif isinstance(e, Table):
-        _add_table(slide, e, xf, internal, opts, work_dir, pictures)
+        gf = _add_table(slide, e, xf, internal, opts, work_dir, pictures)
+        sid = gf.shape_id
         rep.counts["tables"] += 1
     else:
         rep.counts[f"skipped_{e.kind}"] += 1
+    link = getattr(e, "hyperlink", None)
+    if proxy is not None and link:
+        if link.startswith("#slide="):
+            internal.append((proxy, int(link.split("=", 1)[1]) - 1))
+        else:
+            proxy.click_action.hyperlink.address = link
+        rep.counts["shape_links"] += 1
+    return sid
 
 
 def _add_fallback(slide: Any, page: Page, pdf: Path, work_dir: Path, sw: float,
@@ -590,17 +680,28 @@ def _clear(slide: Any) -> None:
             tree.remove(el)
 
 
+def _drawn_elsewhere(e: Any) -> bool:
+    """M7: drawn by the slide master or a layout (``analyze/masters.py`` notes)."""
+    return any(n.startswith(("in_master:", "in_layout:")) for n in e.notes)
+
+
 def _build_page(slide: Any, page: Page, doc: Document, work_dir: Path, sw: float, sh: float,
                 internal: list[tuple[Any, int]], rep: WriteReport,
-                opts: TextOptions | None = None) -> None:
+                opts: TextOptions | None = None, items: list[Any] | None = None
+                ) -> dict[str, int]:
+    """Write ``page`` (or ``items`` placed like ``page``) onto ``slide``; returns the
+    shape id of every top-level element written (IR id -> shape id)."""
     opts = opts or TextOptions()
     xf = _xf_for(page, sw, sh)
-    items: list[Any] = list(page.elements)
+    own = items is None
+    items = list(page.elements) if items is None else list(items)
     if opts.layout == "blocks" and any(isinstance(e, TextBlock) for e in items):
         items = [e for e in items if not (isinstance(e, Image) and BULLET_IMAGE_NOTE in e.notes)]
-    else:
+    elif own:
         items = [e for e in items if not isinstance(e, TextBlock)]
         items.extend(line_blocks(page, doc.fonts))
+    if own and opts.structure:
+        items = [e for e in items if not _drawn_elsewhere(e)]
     pictures = {e.id: e for e in page.elements if isinstance(e, Image)}
     ids = _Ids()
     present = {e.id for e in items}
@@ -613,6 +714,7 @@ def _build_page(slide: Any, page: Page, doc: Document, work_dir: Path, sw: float
     # stable: by z; text ties broken by reading order
     order = sorted(range(len(top)), key=lambda i: (
         top[i].z, getattr(top[i], "reading_order", None) or 0, i))
+    written: dict[str, int] = {}
     for i in order:
         e = top[i]
         if isinstance(e, (Shape, Image)) and e.is_background:
@@ -626,37 +728,238 @@ def _build_page(slide: Any, page: Page, doc: Document, work_dir: Path, sw: float
                 _write_element(slide, grp.shapes, k, xf, internal, rep, opts, work_dir,
                                pictures, ids)
             grp.shapes._recalculate_extents()
+            written[e.id] = grp.shape_id
             rep.counts["groups"] += 1
         else:
-            _write_element(slide, slide.shapes, e, xf, internal, rep, opts, work_dir,
-                           pictures, ids)
+            sid = _write_element(slide, slide.shapes, e, xf, internal, rep, opts, work_dir,
+                                 pictures, ids)
+            if sid is not None:
+                written[e.id] = sid
     ids.patch()
+    return written
+
+
+class _Owner:
+    """A slide master or layout seen as a slide by the element writers."""
+
+    def __init__(self, real: Any) -> None:
+        self.real = real
+        self.part = real.part
+        self._element = real._element
+        self.shapes = SlideShapes(real.shapes._spTree, real)
+
+
+def _emu_box(b: tuple[float, float, float, float], xf: _Xf) -> tuple[int, int, int, int]:
+    return xf.x(b[0]), xf.y(b[1]), xf.d(b[2] - b[0]), xf.d(b[3] - b[1])
+
+
+def _rep_page(doc: Document, items: list[Any], fallback: Page) -> Page:
+    """The page a master / layout copy was taken from (for its placement)."""
+    for e in items:
+        for n in e.notes:
+            if n.startswith("from:"):
+                pi = int(n[5:].split(":", 1)[0])
+                if 0 <= pi < len(doc.pages):
+                    return doc.pages[pi]
+    return fallback
+
+
+LAYOUT_TYPES = {"Title Slide": "title", "Title and Content": "obj", "Two Content": "twoObj",
+                "Title Only": "titleOnly", "Blank": "blank",
+                "Blank (no master graphics)": "blank"}
+
+
+def _write_masters(prs: Any, doc: Document, work_dir: Path, sw: float, sh: float,
+                   rep: WriteReport, opts: TextOptions) -> dict[str, Any]:
+    """Slide master + layouts from ``doc.masters[0]``; returns layout id -> layout."""
+    m = doc.masters[0]
+    pages = [p for p in doc.pages if p.layout_id and not p.triage.fallback_image]
+    ref = pages[0] if pages else doc.pages[0]
+    xf = _xf_for(ref, sw, sh)
+    structure.neutral_text_styles(prs)
+    master = prs.slide_master
+    structure.clear_tree(master)
+    mtree = master.shapes._spTree
+    slots: dict[str, tuple[float, float, float, float]] = {}
+    for lay in m.layouts:
+        for k, b in lay.placeholders.items():
+            slots.setdefault(k, b)
+    defaults = {"title": (0.05 * ref.width, 0.04 * ref.height, 0.95 * ref.width,
+                          0.2 * ref.height),
+                "body": (0.05 * ref.width, 0.23 * ref.height, 0.95 * ref.width,
+                         0.88 * ref.height)}
+    for k in ("title", "body", "sldNum"):
+        box = slots.get(k) or defaults.get(k)
+        if box is not None:
+            sid = structure.next_id(master)
+            mtree.append(structure.placeholder_xml(sid, k, _emu_box(box, xf), master=True))
+    internal: list[tuple[Any, int]] = []
+    owner = _Owner(master)
+    _build_page(owner, _rep_page(doc, m.elements, ref), doc, work_dir, sw, sh, internal, rep,
+                opts, items=m.elements)
+    structure.renumber_ids(master)
+    members = {c for g in m.elements if isinstance(g, Group) for c in g.child_ids}
+    rep.counts["master_elements"] += len([e for e in m.elements if e.id not in members])
+    stock = list(prs.slide_layouts)
+    out: dict[str, Any] = {}
+    for k, lay in enumerate(m.layouts[:len(stock)]):
+        pl = stock[k]
+        structure.clear_tree(pl)
+        bg = pl._element.find(qn("p:cSld")).find(qn("p:bg"))
+        if bg is not None:
+            bg.getparent().remove(bg)
+        structure.set_layout_props(pl, lay.name, LAYOUT_TYPES.get(lay.name), lay.show_master)
+        for kind in ("title", "subTitle", "body", "body2", "sldNum"):
+            if kind in lay.placeholders:
+                sid = structure.next_id(pl)
+                pl.shapes._spTree.append(structure.placeholder_xml(
+                    sid, kind, _emu_box(lay.placeholders[kind], xf)))
+        if lay.elements:
+            _build_page(_Owner(pl), _rep_page(doc, lay.elements, ref), doc, work_dir, sw, sh,
+                        internal, rep, opts, items=lay.elements)
+            structure.renumber_ids(pl)
+            lm = {c for g in lay.elements if isinstance(g, Group) for c in g.child_ids}
+            rep.counts["layout_elements"] += len([e for e in lay.elements if e.id not in lm])
+        out[lay.id] = pl
+    for pl in stock[len(out):]:
+        prs.slide_layouts.remove(pl)
+    rep.counts["layouts"] = len(out)
+    return out
+
+
+def _timing(page: Page, written: dict[str, int]) -> tuple[Any, int] | None:
+    """The appear animations of a build-up's final page (``analyze/builds.py`` notes)."""
+    steps: dict[int, list[tuple[int, tuple[int, int] | None]]] = {}
+    bld: list[tuple[int, str]] = []
+    for e in sorted(page.elements, key=lambda x: (x.z, x.id)):
+        sid = written.get(e.id)
+        if sid is None or getattr(e, "is_background", False):
+            continue
+        paras = paragraph_steps(e) if isinstance(e, TextBlock) else {}
+        if paras:
+            for pi in sorted(paras):
+                steps.setdefault(paras[pi], []).append((sid, (pi, pi)))
+            bld.append((sid, "p"))
+            continue
+        st = element_step(e)
+        if st > 0:
+            steps.setdefault(st, []).append((sid, None))
+            if isinstance(e, (TextBlock, Shape)):
+                bld.append((sid, "sp"))
+            elif isinstance(e, Table):
+                bld.append((sid, "graphic"))
+    if not steps:
+        return None
+    ordered = [steps[k] for k in sorted(steps)]
+    return structure.timing_xml(ordered, bld), sum(len(s) for s in ordered)
 
 
 def write_pptx(doc: Document, out: Path, work_dir: Path, pdf: Path,
                opts: TextOptions | None = None) -> WriteReport:
-    """Write ``doc`` to ``out``. Never fails because of a single page."""
+    """Write ``doc`` to ``out``. Never fails because of a single page.
+
+    With ``opts.structure`` (M7) the repeated elements go to the slide master and
+    layouts, page numbers become slide-number placeholders, and (per ``opts``) titles
+    and bodies become placeholders, colours / fonts theme references and build-up pages
+    one animated slide. Notes, sections, links and document properties are always
+    written."""
     opts = opts or TextOptions()
-    rep = WriteReport()
-    prs = Presentation()
     sw, sh, g = slide_size(doc)
+    for attempt in (opts, opts.flat()):
+        rep = WriteReport()
+        prs = _new_presentation(doc, sw, sh)
+        use_theme = attempt.theme_refs and attempt.structure and doc.theme is not None
+        tok_refs = xml_ext.THEME_REFS.set(use_theme)
+        tok_fonts = THEME_FONTS.set((doc.theme.major_font, doc.theme.minor_font)
+                                    if use_theme and doc.theme else (None, None))
+        try:
+            _write_slides(prs, doc, work_dir, pdf, attempt, rep, sw, sh)
+            break
+        except _Restart:
+            continue  # the flat deck
+        finally:
+            xml_ext.THEME_REFS.reset(tok_refs)
+            THEME_FONTS.reset(tok_fonts)
+    if g != 1.0:
+        LOG.warning("page size outside PowerPoint limits: deck scaled by %.3f", g)
+    buf = io.BytesIO()
+    prs.save(buf)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_name(out.name + ".tmp")
+    tmp.write_bytes(normalize_zip(buf.getvalue()))
+    tmp.replace(out)
+    return rep
+
+
+def _new_presentation(doc: Document, sw: float, sh: float) -> Any:
+    prs = Presentation()
     prs.slide_width = Emu(pt_to_emu(sw))
     prs.slide_height = Emu(pt_to_emu(sh))
     cp = prs.core_properties
     cp.title = _xml_safe(doc.metadata.get("Title", ""))[:255]
-    cp.author = cp.last_modified_by = "pdf2pptx"
+    cp.author = _xml_safe(doc.metadata.get("Author", ""))[:255] or "pdf2pptx"
+    cp.subject = _xml_safe(doc.metadata.get("Subject", ""))[:255]
+    cp.keywords = _xml_safe(doc.metadata.get("Keywords", ""))[:255]
+    cp.last_modified_by = "pdf2pptx"
     cp.revision = 1
     cp.created = cp.modified = FIXED_CORE_TIME
-    layout = prs.slide_layouts[BLANK_LAYOUT]
+    structure.apply_theme(prs, doc.theme)
+    return prs
+
+
+def _plain_layout_id(doc: Document) -> str | None:
+    for m in doc.masters:
+        for lay in m.layouts:
+            if not lay.show_master and not lay.elements and not set(lay.placeholders) - {
+                    "sldNum"}:
+                return lay.id
+    return None
+
+
+def _write_slides(prs: Any, doc: Document, work_dir: Path, pdf: Path, opts: TextOptions,
+                  rep: WriteReport, sw: float, sh: float) -> None:
+    layouts: dict[str, Any] = {}
+    if opts.structure and doc.masters:
+        try:
+            layouts = _write_masters(prs, doc, work_dir, sw, sh, rep, opts)
+        except Exception as exc:  # a flat deck instead of a broken master
+            msg = f"master/layouts failed ({type(exc).__name__}: {exc}); flat deck"
+            LOG.error(msg, exc_info=LOG.isEnabledFor(10))
+            rep.errors.append(msg)
+            raise _Restart(msg) from exc
+    structured = bool(layouts)
+    if not structured:
+        opts = dataclasses.replace(opts, structure=False, placeholders=False)
+    blank = next((pl for pl in prs.slide_layouts if pl.name == "Blank"), prs.slide_layouts[-1])
+    plain = layouts.get(_plain_layout_id(doc) or "")
+    gone = absorbed_pages(doc) if opts.builds else set()
+    slide_of = page_to_slide(doc, opts.builds)
     internal: list[tuple[Any, int]] = []
     slides = []
     for page in doc.pages:
+        if page.index in gone:
+            continue
+        layout = layouts.get(page.layout_id or "") if structured else None
+        if layout is None:
+            layout = plain if structured and plain is not None else (
+                next(iter(layouts.values())) if structured else blank)
         slide = prs.slides.add_slide(layout)
+        _clear(slide)  # placeholders cloned from the layout: ours are written explicitly
         slides.append(slide)
+        page_opts = dataclasses.replace(opts, slide_no=len(slides))
+        if page.notes_text:
+            slide.notes_slide.notes_text_frame.text = _xml_safe(page.notes_text)
+            rep.counts["notes"] += 1
         if not page.triage.fallback_image:
             try:
                 n_links = len(internal)
-                _build_page(slide, page, doc, work_dir, sw, sh, internal, rep, opts)
+                written = _build_page(slide, page, doc, work_dir, sw, sh, internal, rep,
+                                      page_opts)
+                if opts.builds and page.build_of is not None:
+                    tm = _timing(page, written)
+                    if tm is not None:
+                        structure.set_timing(slide, tm[0])
+                        rep.counts["animations"] += tm[1]
                 rep.slides += 1
                 continue
             except Exception as exc:
@@ -668,22 +971,32 @@ def write_pptx(doc: Document, out: Path, work_dir: Path, pdf: Path,
                 page.triage.reason = (page.triage.reason + "; " if page.triage.reason
                                       else "") + msg
                 _clear(slide)
+                old = slide._element.find(qn("p:timing"))
+                if old is not None:
+                    slide._element.remove(old)
         _add_fallback(slide, page, pdf, work_dir, sw, sh)
         rep.fallback_pages.append(page.index)
         rep.counts["fallback_pictures"] += 1
         rep.slides += 1
     for shape, target in internal:
-        if 0 <= target < len(slides):
-            shape.click_action.target_slide = slides[target]
-    if g != 1.0:
-        LOG.warning("page size outside PowerPoint limits: deck scaled by %.3f", g)
-    buf = io.BytesIO()
-    prs.save(buf)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    tmp = out.with_name(out.name + ".tmp")
-    tmp.write_bytes(normalize_zip(buf.getvalue()))
-    tmp.replace(out)
-    return rep
+        if 0 <= target < len(slide_of) and slide_of[target] < len(slides):
+            shape.click_action.target_slide = slides[slide_of[target]]
+    if doc.sections:
+        secs: list[tuple[str, list[int]]] = []
+        for k, sec in enumerate(doc.sections):
+            first = slide_of[sec.first_page] if sec.first_page < len(slide_of) else len(slides)
+            nxt = doc.sections[k + 1].first_page if k + 1 < len(doc.sections) else len(
+                doc.pages)
+            last = slide_of[nxt] if nxt < len(slide_of) else len(slides)
+            idxs = [i for i in range(first, last) if not secs or i > secs[-1][1][-1]]
+            if idxs:
+                secs.append((_xml_safe(sec.name), idxs))
+        structure.set_sections(prs, secs)
+        rep.counts["sections"] = len(secs)
+
+
+class _Restart(Exception):
+    """The structured write failed before any slide: write the flat deck instead."""
 
 
 def normalize_zip(data: bytes) -> bytes:

@@ -8,10 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from pptx import Presentation
-from pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptx.enum.shapes import MSO_SHAPE_TYPE, PP_PLACEHOLDER
 from pptx.oxml.ns import qn
 
 from ..build.units import emu_to_pt
+from .ppt_com import inherited_shapes
+
+FOOTER_PH = (PP_PLACEHOLDER.SLIDE_NUMBER, PP_PLACEHOLDER.FOOTER, PP_PLACEHOLDER.DATE)
 
 
 @dataclass
@@ -165,8 +168,10 @@ def _chart_text(chart: Any) -> str:
     return "\n".join(p for p in parts if p)
 
 
-def _walk(shapes: Any, st: SlideStats) -> None:
+def _walk(shapes: Any, st: SlideStats, inherited: bool = False) -> None:
     for shape in shapes:
+        if inherited and shape.is_placeholder:
+            continue  # master / layout placeholders do not render on slides
         stype = shape.shape_type
         if stype == MSO_SHAPE_TYPE.GROUP:
             _walk(shape.shapes, st)
@@ -211,7 +216,15 @@ def deck_stats(pptx: Path) -> DeckStats:
     slides = []
     for i, slide in enumerate(prs.slides):
         st = SlideStats(index=i)
-        _walk(slide.shapes, st)
+        # M7: master and layout shapes render on the slide too. Their text is read after
+        # the slide's own content (PowerPoint's reading order leaves them out entirely)
+        # and before its footer placeholders (slide number, footer, date: read last).
+        own = list(slide.shapes)
+        foot = [x for x in own if x.is_placeholder and x.placeholder_format.type in FOOTER_PH]
+        _walk([x for x in own if x not in foot], st)
+        for _scope, shapes in inherited_shapes(slide)[:-1]:
+            _walk(shapes, st, inherited=True)
+        _walk(foot, st)
         st.text = "\n".join(st.parts)
         st.frame_text = st.text
         slides.append(st)

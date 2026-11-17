@@ -35,7 +35,8 @@ def render_pages(pdf: Path, dpi: int) -> list[np.ndarray]:
             page = doc[i]
             w, h = page.get_size()
             tw, th = round(w * dpi / 72), round(h * dpi / 72)
-            img = page.render(scale=dpi / 72).to_pil().convert("RGB")
+            # annotations (comment icons, link borders) are not page content (M7)
+            img = page.render(scale=dpi / 72, draw_annots=False).to_pil().convert("RGB")
             if img.size != (tw, th):
                 img = img.resize((tw, th))
             out.append(np.asarray(img))

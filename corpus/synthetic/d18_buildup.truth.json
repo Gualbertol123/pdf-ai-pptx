@@ -1,5 +1,17 @@
 {
  "aspect": "16:9",
+ "builds": [
+  {
+   "slides": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "steps": 4
+  }
+ ],
  "category": "synthetic_deck",
  "features": [
   "build_sequence"

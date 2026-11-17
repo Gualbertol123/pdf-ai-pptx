@@ -394,14 +394,34 @@ class _Worker:
         out: list[TextShape] = []
         if not items:
             return out
-        shapes = _RAW(self._slide(handle, slide)._oleobj_, "Slide", "Shapes")
+        sld = self._slide(handle, slide)._oleobj_
+        collections: dict[str, Any] = {}
+
+        def shapes_of(scope: str) -> Any:
+            # M7: master and layout shapes render on the slide too
+            if scope not in collections:
+                owner = sld if scope == "slide" else _RAW(
+                    sld, "Slide", "CustomLayout" if scope == "layout" else "Master")
+                iface = {"slide": "Slide", "layout": "CustomLayout", "master": "Master"}[scope]
+                collections[scope] = _RAW(owner, iface, "Shapes")
+            return collections[scope]
+
         for item in items:
-            shape = _RAW(shapes, "Shapes", "Item", item.index)
+            shape = _RAW(shapes_of(item.scope), "Shapes", "Item", item.index)
             if item.kind == "text":
                 _collect_text_frame(_RAW(shape, "Shape", "TextFrame2"), item.name,
                                     item.shape_id, out)
             else:  # table / group
                 _collect_shape(shape, out, item.spanned)
+            self.beat()
+        return out
+
+    def op_animation_counts(self, handle: str) -> list[int]:
+        """``TimeLine.MainSequence.Count`` of every slide (M7 build animations)."""
+        pres = self._get(handle)
+        out = []
+        for i in range(self.counts[handle]):
+            out.append(int(pres.Slides.Item(i + 1).TimeLine.MainSequence.Count))
             self.beat()
         return out
 
@@ -488,8 +508,9 @@ def _collect_text_frame(tf2: Any, name: str, sid: int, out: list[TextShape],
         y0 = top + oy
         y1 = y0 + height
         # space-after belongs to the paragraph's last line only; a line that ends in a
-        # soft break (VT) is not a paragraph end
-        if text.endswith(PARAGRAPH_ENDS[:2]) or li == n_lines:
+        # soft break (VT) is not a paragraph end. Measured (M7): the frame's last
+        # paragraph's bound does not include its space-after.
+        if text.endswith(PARAGRAPH_ENDS[:2]) and li < n_lines:
             pf = raw(line, "TextRange2", "ParagraphFormat")
             after = max(0.0, float(raw(pf, "ParagraphFormat2", "SpaceAfter")))
             if after and int(raw(pf, "ParagraphFormat2", "LineRuleAfter")):
@@ -568,6 +589,7 @@ class _PlanItem:
     shape_id: int
     name: str
     spanned: dict[int, set[tuple[int, int]]] = field(default_factory=dict)
+    scope: str = "slide"  # slide | layout | master (M7: inherited shapes that render)
 
 
 def _has_text(tf: Any) -> bool:
@@ -598,20 +620,35 @@ def _text_plan(pptx: Path) -> list[list[_PlanItem]]:
     out = []
     for slide in Presentation(str(pptx)).slides:
         items: list[_PlanItem] = []
-        for idx, shp in enumerate(slide.shapes, start=1):
-            sid, name = int(shp.shape_id), str(shp.name)
-            if shp.shape_type == 6:
-                if _group_has_text(shp):
-                    items.append(_PlanItem(idx, "group", sid, name))
-            elif getattr(shp, "has_table", False) and shp.has_table:
-                t = shp.table
-                spanned = {(r, c) for r in range(len(t.rows)) for c in range(len(t.columns))
-                           if t.cell(r, c).is_spanned}
-                items.append(_PlanItem(idx, "table", sid, name, {sid: spanned}))
-            elif getattr(shp, "has_text_frame", False) and shp.has_text_frame and _has_text(
-                    shp.text_frame):
-                items.append(_PlanItem(idx, "text", sid, name))
+        for scope, shapes in inherited_shapes(slide):
+            for idx, shp in enumerate(shapes, start=1):
+                if scope != "slide" and shp.is_placeholder:
+                    continue  # master / layout placeholders do not render on slides
+                sid, name = int(shp.shape_id), str(shp.name)
+                if shp.shape_type == 6:
+                    if _group_has_text(shp):
+                        items.append(_PlanItem(idx, "group", sid, name, scope=scope))
+                elif getattr(shp, "has_table", False) and shp.has_table:
+                    t = shp.table
+                    spanned = {(r, c) for r in range(len(t.rows)) for c in range(len(t.columns))
+                               if t.cell(r, c).is_spanned}
+                    items.append(_PlanItem(idx, "table", sid, name, {sid: spanned}, scope=scope))
+                elif getattr(shp, "has_text_frame", False) and shp.has_text_frame and _has_text(
+                        shp.text_frame):
+                    items.append(_PlanItem(idx, "text", sid, name, scope=scope))
         out.append(items)
+    return out
+
+
+def inherited_shapes(slide: Any) -> list[tuple[str, Any]]:
+    """(scope, shapes) drawn on ``slide`` bottom-up: master (unless the layout hides
+    it), layout, slide (python-pptx objects)."""
+    layout = slide.slide_layout
+    out: list[tuple[str, Any]] = []
+    if layout._element.get("showMasterSp") not in ("0", "false"):
+        out.append(("master", layout.slide_master.shapes))
+    out.append(("layout", layout.shapes))
+    out.append(("slide", slide.shapes))
     return out
 
 
@@ -905,6 +942,10 @@ class PowerPointEngine:
         """Lines and words of every text shape on ``slide`` (0-based), slide points."""
         result: list[TextShape] = self._call("text_layout", self._h(pres), int(slide))
         return result
+
+    def animation_counts(self, pres: PresInfo | str) -> list[int]:
+        counts: list[int] = self._call("animation_counts", self._h(pres))
+        return counts
 
     def export_pdf(self, pres: PresInfo | str, out: Path) -> Path:
         return Path(self._call("export_pdf", self._h(pres), str(out)))

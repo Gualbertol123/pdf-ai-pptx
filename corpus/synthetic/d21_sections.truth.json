@@ -1,8 +1,13 @@
 {
  "aspect": "16:9",
  "category": "synthetic_deck",
+ "core": {
+  "author": "pdf2pptx corpus",
+  "title": "Annual plan"
+ },
  "features": [
-  "sections"
+  "sections",
+  "core_properties"
  ],
  "name": "d21_sections",
  "sections": [

@@ -396,6 +396,7 @@ class Layout:
     name: str
     elements: list[AnyElement] = field(default_factory=list)
     placeholders: dict[str, BBox] = field(default_factory=dict)
+    show_master: bool = True  # False: the layout hides the master's graphics
 
 
 @dataclass(kw_only=True)

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from . import log
-from .build.writer import TextOptions, write_pptx
+from .build.writer import TextOptions, WriteReport, write_pptx
 from .config import Config
 from .ingest import parse, triage
 from .ir import Document
@@ -29,7 +29,7 @@ LOG = log.get(__name__)
 STAGE_VERSIONS = {
     "ingest": parse.PARSER_VERSION,
     "triage": "2.0",
-    "analyze": "graphics-6.0",
+    "analyze": "structure-7.1",
 }
 STAGES = tuple(STAGE_VERSIONS)
 
@@ -91,7 +91,10 @@ def run_stage(work_dir: Path, stage: str, fn: Callable[[], Document], use_cache:
 
 def analyze(doc: Document, work_dir: Path | None = None) -> Document:
     """M4: fonts, text blocks, lists, roles, reading order. M6: tables (before text, so
-    cell glyphs are grouped per cell) and graphics (presets, connectors, groups, SVG)."""
+    cell glyphs are grouped per cell) and graphics (presets, connectors, groups, SVG).
+    M7: document structure: links / notes / sections / producer, build-up sequences,
+    theme, then masters / layouts / placeholders (each optional: a failure leaves the
+    flat deck)."""
     from .analyze import shapes, tables
     from .analyze.text import analyze_text
     from .fonts.match import match_document
@@ -116,8 +119,36 @@ def analyze(doc: Document, work_dir: Path | None = None) -> Document:
             LOG.error("page %d: shape analysis failed (%s: %s)", page.index,
                       type(exc).__name__, exc, exc_info=LOG.isEnabledFor(10))
     doc.metadata["pdf2pptx:graphics"] = json.dumps(dict(sorted(stats.items())), sort_keys=True)
+    doc.metadata["pdf2pptx:structure"] = json.dumps(analyze_structure(doc), sort_keys=True)
     doc.stage = "analyze"
     return doc
+
+
+def analyze_structure(doc: Document) -> dict[str, int]:
+    """M7 passes in order; each one is optional (logged, never raised)."""
+    from .analyze import builds, links, masters, theme
+
+    stats: dict[str, int] = {}
+    for name, fn in (("links", links.analyze_links), ("builds", builds.analyze_builds),
+                     ("theme", theme.analyze_theme), ("masters", masters.analyze_masters)):
+        try:
+            stats.update(fn(doc))
+        except Exception as exc:
+            LOG.error("%s analysis failed (%s: %s); skipped", name, type(exc).__name__, exc,
+                      exc_info=LOG.isEnabledFor(10))
+            if name == "builds":
+                for p in doc.pages:
+                    p.build_of = None
+            if name == "masters":
+                doc.masters = []
+                for p in doc.pages:
+                    p.layout_id = None
+                    for e in p.elements:
+                        e.notes = [n for n in e.notes
+                                   if not n.startswith((masters.MASTER_NOTE, masters.LAYOUT_NOTE))]
+                        if hasattr(e, "placeholder"):
+                            e.placeholder = None
+    return dict(sorted(stats.items()))
 
 
 @dataclass
@@ -134,6 +165,8 @@ class ConvertResult:
     errors: list[str] = field(default_factory=list)
     crosscheck: dict[str, Any] | None = None
     tune: dict[str, Any] | None = None
+    slides: int = 0  # slides written (fewer than pages when build-ups are collapsed)
+    structure_check: dict[str, Any] | None = None  # fidelity: structured vs flat render
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -173,11 +206,20 @@ def analyzed(pdf: Path, cfg: Config, *, workers: int | None = None,
     return doc, work_dir, cached
 
 
+def write_options(cfg: Config) -> TextOptions:
+    return TextOptions.for_mode(cfg.mode, cfg.text_layout, builds=cfg.builds_enabled,
+                                structure=cfg.structure)
+
+
 def _tune(doc: Document, out: Path, work_dir: Path, pdf: Path, cfg: Config) -> dict[str, Any]:
+    """Tune on the flat deck (one slide per page, M5/M6): ``_finalize`` writes the
+    structured deck from the tuned IR afterwards."""
     from .verify.tuner import tune_document
 
-    rep = tune_document(doc, out, work_dir, pdf, TextOptions.for_mode(cfg.mode, cfg.text_layout),
-                        cfg.limits, rounds=cfg.tune_rounds, render_dpi=cfg.render_dpi)
+    flat = write_options(cfg).flat()
+    write_pptx(doc, out, work_dir, pdf, flat)
+    rep = tune_document(doc, out, work_dir, pdf, flat, cfg.limits, rounds=cfg.tune_rounds,
+                        render_dpi=cfg.render_dpi)
     if rep.skipped:
         LOG.info("%s: tuner skipped (%s)", pdf.name, rep.skipped)
     else:
@@ -187,24 +229,53 @@ def _tune(doc: Document, out: Path, work_dir: Path, pdf: Path, cfg: Config) -> d
     return rep.as_dict()
 
 
+def _finalize(doc: Document, out: Path, work_dir: Path, pdf: Path, cfg: Config, *,
+              check: bool) -> tuple[WriteReport, dict[str, Any] | None]:
+    """The final write (M7 structure per the mode). In fidelity mode the master /
+    layouts are kept only if every slide renders like the flat deck (``check``)."""
+    from .analyze.masters import refresh_copies
+
+    opts = write_options(cfg)
+    refresh_copies(doc)
+    rep = write_pptx(doc, out, work_dir, pdf, opts)
+    if not (check and cfg.mode == "fidelity" and opts.structure and doc.masters):
+        return rep, None
+    from .verify.deck import render_check
+
+    flat_out = work_dir / "structure_check" / "flat.pptx"
+    write_pptx(doc, flat_out, work_dir, pdf, opts.flat())
+    verdict = render_check(out, flat_out, cfg)
+    if not verdict.get("ok"):
+        LOG.info("%s: structured deck differs from the flat one (%s); keeping the flat deck",
+                 pdf.name, verdict.get("reason") or verdict.get("min_ssim"))
+        rep = write_pptx(doc, out, work_dir, pdf, opts.flat())
+        verdict["kept"] = "flat"
+    else:
+        verdict["kept"] = "structured"
+    return rep, verdict
+
+
 def convert(pdf: Path, out: Path, cfg: Config, *, workers: int | None = None,
-            use_cache: bool = True, tune: bool | None = None) -> ConvertResult:
+            use_cache: bool = True, tune: bool | None = None,
+            check_structure: bool = True) -> ConvertResult:
     """Convert one PDF. Raises only if the whole document cannot be opened/written.
 
     ``tune``: run the fidelity tuner (M5) after writing; None = the mode's default.
+    ``check_structure``: in fidelity mode, render-check the master / layouts (M7).
     """
     t0 = time.perf_counter()
     pdf = Path(pdf)
     res = ConvertResult(pdf=str(pdf), output=str(out))
     doc, work_dir, res.cached_stages = analyzed(pdf, cfg, workers=workers, use_cache=use_cache)
 
-    rep = write_pptx(doc, out, work_dir, pdf, TextOptions.for_mode(cfg.mode, cfg.text_layout))
     if (cfg.tune_enabled if tune is None else tune) and cfg.text_layout == "blocks":
         res.tune = _tune(doc, out, work_dir, pdf, cfg)
+    rep, res.structure_check = _finalize(doc, out, work_dir, pdf, cfg, check=check_structure)
     doc.stage = "build"
     _save_ir(work_dir, "build", doc)
 
     res.pages = len(doc.pages)
+    res.slides = rep.slides
     res.seconds = round(time.perf_counter() - t0, 3)
     res.seconds_per_page = round(res.seconds / max(res.pages, 1), 3)
     res.triage = dict(sorted(Counter(p.triage.kind for p in doc.pages).items()))
@@ -224,7 +295,8 @@ def convert(pdf: Path, out: Path, cfg: Config, *, workers: int | None = None,
 def _convert_entry(pdf: Path, out: Path, cfg: Config, use_cache: bool) -> dict[str, Any]:
     log.setup(False)
     try:
-        return convert(pdf, out, cfg, workers=1, use_cache=use_cache, tune=False).as_dict()
+        return convert(pdf, out, cfg, workers=1, use_cache=use_cache, tune=False,
+                       check_structure=False).as_dict()
     except Exception as exc:  # a whole-document failure is recorded, not raised
         LOG.error("%s: conversion failed: %s", pdf.name, exc)
         return {"pdf": str(pdf), "output": str(out), "error": f"{type(exc).__name__}: {exc}"}
@@ -258,8 +330,8 @@ def convert_corpus(cfg: Config, *, only: list[str] | None = None, use_cache: boo
             r["name"] = e["name"]
             r["expected_pages"] = e["pages"]
             results[e["name"]] = r
-    if cfg.tune_enabled and cfg.text_layout == "blocks":
-        _tune_corpus(results, cfg)
+    if (cfg.tune_enabled and cfg.text_layout == "blocks") or cfg.mode == "fidelity":
+        _tune_corpus(results, cfg, tune=cfg.tune_enabled and cfg.text_layout == "blocks")
     if check:
         _com_check(results)
     for name, r in results.items():
@@ -285,8 +357,9 @@ def convert_corpus(cfg: Config, *, only: list[str] | None = None, use_cache: boo
     return summary
 
 
-def _tune_corpus(results: dict[str, dict[str, Any]], cfg: Config) -> None:
-    """Tune every converted file here, one after the other, on one PowerPoint engine."""
+def _tune_corpus(results: dict[str, dict[str, Any]], cfg: Config, tune: bool = True) -> None:
+    """Tune every converted file here, one after the other, on one PowerPoint engine,
+    then write the final (structured) deck: ``_finalize``."""
     for name in sorted(results):
         r = results[name]
         if "error" in r:
@@ -295,9 +368,14 @@ def _tune_corpus(results: dict[str, dict[str, Any]], cfg: Config) -> None:
             pdf, out = Path(r["pdf"]), Path(r["output"])
             work_dir = cfg.work_dir / sha256_file(pdf)
             doc = Document.from_json((work_dir / "ir_build.json").read_text(encoding="utf-8"))
-            r["tune"] = _tune(doc, out, work_dir, pdf, cfg)
+            t0 = time.perf_counter()
+            if tune:
+                r["tune"] = _tune(doc, out, work_dir, pdf, cfg)
+            rep, r["structure_check"] = _finalize(doc, out, work_dir, pdf, cfg, check=True)
+            r["counts"] = dict(sorted(rep.counts.items()))
+            r["slides"] = rep.slides
             _save_ir(work_dir, "build", doc)
-            r["seconds"] = round(r["seconds"] + r["tune"]["seconds"], 3)
+            r["seconds"] = round(r["seconds"] + time.perf_counter() - t0, 3)
             r["seconds_per_page"] = round(r["seconds"] / max(r.get("pages") or 1, 1), 3)
         except Exception as exc:  # the untuned deck stays
             LOG.error("%s: tuning failed: %s", name, exc)
@@ -317,8 +395,8 @@ def _com_check(results: dict[str, dict[str, Any]]) -> None:
             try:
                 n = ppt.slide_count(Path(r["output"]))
                 r["com_slides"] = n
-                r["com_open"] = "ok" if n == r["expected_pages"] else (
-                    f"slide count {n} != {r['expected_pages']}")
+                want = r.get("slides") or r["expected_pages"]  # builds: fewer slides
+                r["com_open"] = "ok" if n == want else f"slide count {n} != {want}"
             except ppt_com.PowerPointUnavailable:
                 raise
             except Exception as exc:

@@ -244,7 +244,9 @@
   {
    "category": "synthetic_deck",
    "features": [
-    "speaker_notes"
+    "speaker_notes",
+    "pdf_comments",
+    "core_properties"
    ],
    "name": "d20_speaker_notes",
    "pages": 3,
@@ -255,7 +257,8 @@
   {
    "category": "synthetic_deck",
    "features": [
-    "sections"
+    "sections",
+    "core_properties"
    ],
    "name": "d21_sections",
    "pages": 6,

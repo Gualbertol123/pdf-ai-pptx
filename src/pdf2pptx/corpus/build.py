@@ -37,6 +37,37 @@ def _write_json(path: Path, data: Any) -> None:
                     encoding="utf-8", newline=LF)
 
 
+def add_comments(pdf: Path, notes: list[str]) -> None:
+    """Add each note as a closed comment (text annotation) at the page's top-right corner,
+    the way a reviewer's sticky note looks. Rewrites ``pdf`` in place."""
+    import ctypes
+
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as R
+
+    doc = pdfium.PdfDocument(str(pdf))
+    try:
+        for i, text in enumerate(notes):
+            if not text or i >= len(doc):
+                continue
+            page = doc[i]
+            w, h = page.get_size()
+            annot = R.FPDFPage_CreateAnnot(page, R.FPDF_ANNOT_TEXT)
+            rect = R.FS_RECTF(w - 30.0, h - 6.0, w - 6.0, h - 30.0)  # left, top, right, bottom
+            R.FPDFAnnot_SetRect(annot, rect)
+            for key, val in ((b"Contents", text), (b"T", "pdf2pptx corpus")):
+                buf = (val + "\x00").encode("utf-16-le")  # FPDF_WIDESTRING
+                R.FPDFAnnot_SetStringValue(annot, key, ctypes.cast(
+                    ctypes.c_char_p(buf), ctypes.POINTER(ctypes.c_ushort)))
+            R.FPDFPage_CloseAnnot(annot)
+            page.close()
+        tmp = pdf.with_suffix(".tmp.pdf")
+        doc.save(str(tmp))
+    finally:
+        doc.close()
+    tmp.replace(pdf)
+
+
 def _page_count(pdf: Path) -> int:
     doc = pdfium.PdfDocument(str(pdf))
     try:
@@ -63,6 +94,7 @@ def build(corpus_dir: Path, only: list[str] | None = None) -> dict[str, Any]:
         t = truth.extract(pptx)
         t.update(name=spec.name, category="synthetic_deck", features=list(spec.features),
                  aspect=spec.aspect, source="python-pptx", truth_pptx=pptx.name)
+        t.update(spec.extra)
         _write_json(syn / f"{spec.name}.truth.json", t)
         LOG.info("deck %s: %d slides", spec.name, t["slide_count"])
 
@@ -73,6 +105,9 @@ def build(corpus_dir: Path, only: list[str] | None = None) -> dict[str, Any]:
         for spec in decks:
             with ppt.opened(syn / f"{spec.name}.pptx") as pres:
                 ppt.export_pdf(pres, syn / f"{spec.name}.pdf")
+            if "pdf_comments" in spec.features:
+                t = json.loads((syn / f"{spec.name}.truth.json").read_text(encoding="utf-8"))
+                add_comments(syn / f"{spec.name}.pdf", [s["notes"] for s in t["slides"]])
     for spec in decks:
         entries.append({
             "name": spec.name,

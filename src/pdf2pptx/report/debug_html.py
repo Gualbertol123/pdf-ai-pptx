@@ -224,7 +224,51 @@ def collect(pdf: Path, cfg: Config, *, pptx: Path | None = None,
         pages.append(entry)
     return {"pdf": str(pdf), "pptx": str(pptx), "sha256": sha, "convert": conv, "score": res,
             "pages": pages, "powerpoint_version": engine.version if engine else None,
+            "structure": structure_facts(doc, cfg),
             "seconds": round(time.perf_counter() - t0, 2)}
+
+
+def structure_facts(doc: Document | None, cfg: Config) -> list[str]:
+    """M7 deck structure in plain lines: builds (and how to undo them), master and
+    layouts, theme, sections, notes, producer."""
+    if doc is None:
+        return []
+    import json as _json
+
+    def meta(key: str) -> Any:
+        try:
+            return _json.loads(doc.metadata.get(key, "null"))
+        except ValueError:
+            return None
+
+    out = []
+    prod = meta("pdf2pptx:producer") or {}
+    if prod:
+        out.append(f"producer: {prod.get('app')} (slide producer: "
+                   f"{'yes' if prod.get('slide_producer') else 'no'})")
+    for b in meta("pdf2pptx:builds") or []:
+        pages = b["pages"]
+        state = "collapsed" if cfg.builds_enabled else "kept as separate slides (builds off)"
+        out.append(f"build-up: pages {pages[0] + 1}-{pages[-1] + 1} -> one slide with "
+                   f"{b['steps']} clicks / {b['effects']} appear effects, {state}; "
+                   "--no-builds (or builds = false) keeps every page")
+    m = meta("pdf2pptx:masters") or {}
+    if m:
+        lays = ", ".join(f"{lo['name']} ({len(lo['pages'])} p.)" for lo in m.get("layouts", []))
+        out.append(f"master: {m.get('master_elements', 0)} repeated elements; layouts: {lays}")
+    t = meta("pdf2pptx:theme") or {}
+    if doc.theme is not None:
+        acc = " ".join(doc.theme.colors.get(f"accent{i}", "") for i in range(1, 7))
+        out.append(f"theme: accents {acc}" + (f" (palette {t['palette']})" if t.get("palette")
+                                              else "") + f"; fonts {doc.theme.major_font} / "
+                   f"{doc.theme.minor_font}; {t.get('references', 0)} colour references")
+    if doc.sections:
+        out.append("sections: " + ", ".join(f"{s.name} (p. {s.first_page + 1})"
+                                            for s in doc.sections))
+    notes = [p.index + 1 for p in doc.pages if p.notes_text]
+    if notes:
+        out.append(f"speaker notes from comments on pages {notes}")
+    return out
 
 
 # --------------------------------------------------------------------------- HTML
@@ -452,6 +496,9 @@ def render_html(rep: dict[str, Any]) -> str:
     if cs:
         facts.append(f"render+layout median {float(np.median(cs)):.3f} s/slide")
     out.append('<p class="muted">' + " · ".join(_esc(f) for f in facts if f) + "</p>")
+    if rep.get("structure"):
+        out.append('<details open><summary class="muted">Deck structure (M7)</summary><ul>'
+                   + "".join(f"<li>{_esc(x)}</li>" for x in rep["structure"]) + "</ul></details>")
 
     # index: sortable score table
     out.append('<h2>Pages</h2><p class="muted">Click a column to sort; '

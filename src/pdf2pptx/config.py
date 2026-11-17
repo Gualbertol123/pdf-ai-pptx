@@ -39,6 +39,7 @@ class ModeLimits:
     use_theme: bool
     autofit: str  # none | shrink
     tune: bool
+    builds: bool = True  # collapse build-up pages into one slide with animations (M7)
 
 
 MODE_LIMITS: dict[str, ModeLimits] = {
@@ -53,6 +54,7 @@ MODE_LIMITS: dict[str, ModeLimits] = {
         use_theme=False,
         autofit="none",
         tune=True,
+        builds=False,
     ),
     "balanced": ModeLimits(
         forced_line_breaks=False,
@@ -109,6 +111,8 @@ class Config:
     com_timeout_s: float = 60.0
     seed: int = 1234
     text_layout: str = "blocks"
+    builds: bool | None = None  # None = mode default (off in fidelity)
+    structure: bool = True  # masters, layouts, placeholders, theme references (M7)
 
     def __post_init__(self) -> None:
         if self.mode not in MODES:
@@ -128,6 +132,10 @@ class Config:
     @property
     def tune_enabled(self) -> bool:
         return self.limits.tune if self.tune is None else self.tune
+
+    @property
+    def builds_enabled(self) -> bool:
+        return self.limits.builds if self.builds is None else self.builds
 
     @property
     def scores_dir(self) -> Path:

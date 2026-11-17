@@ -22,6 +22,7 @@ from .. import log
 from ..config import Config
 from . import diff, metrics, ppt_com
 from .diff import ElementBox
+from .expand import expand_builds
 from .metrics import Word
 from .pdf_text import page_refs, render_pages
 from .pptx_stats import blank_deck, deck_stats
@@ -95,6 +96,10 @@ def score_pair(
     t0 = time.perf_counter()
     refs = page_refs(text_ref_pdf or pdf)
     renders = render_pages(pdf, cfg.render_dpi)
+    # M7: a collapsed build-up is scored click state by click state, one per page
+    original = pptx
+    exp = expand_builds(pptx, cfg.scores_dir / "expanded" / f"{name}.pptx")
+    pptx = exp.path
     stats = deck_stats(pptx)
 
     com_error: str | None = engine_error
@@ -173,7 +178,9 @@ def score_pair(
     return {
         "name": name,
         "pdf": str(pdf),
-        "pptx": str(pptx),
+        "pptx": str(original),
+        "expanded_builds": None if exp.path == original else {
+            "slides_in": exp.slides_in, "slides_scored": exp.slides_out},
         "text_reference": str(text_ref_pdf or pdf),
         "pages": len(refs),
         "slides_in_pptx": len(stats.slides),

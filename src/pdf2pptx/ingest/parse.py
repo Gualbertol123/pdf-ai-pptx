@@ -22,6 +22,7 @@ from __future__ import annotations
 import ctypes
 import hashlib
 import io
+import json
 import math
 import os
 import re
@@ -56,8 +57,8 @@ from .geom import Matrix
 
 LOG = log.get(__name__)
 
-PARSER_VERSION = "2.2"  # 2.1: font widths + embedded programs; 2.2: mcid/form notes, kept
-# pattern-filled paths (fill kind "pattern" next to their raster)
+PARSER_VERSION = "2.3"  # 2.1: font widths + embedded programs; 2.2: mcid/form notes, kept
+# pattern-filled paths (fill kind "pattern" next to their raster); 2.3: outline (bookmarks)
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
 _STYLES = (r"Bold|Italic|Oblique|Regular|Semibold|SemiBold|Light|Medium|Black|Heavy|"
@@ -769,11 +770,34 @@ def _chunks(n: int, k: int) -> list[list[int]]:
     return [list(range(n))[i::k] for i in range(k)]
 
 
+OUTLINE_KEY = "pdf2pptx:outline"  # metadata: JSON [[level, title, page index or -1], ...]
+MAX_OUTLINE = 2000
+
+
+def outline(doc: Any) -> list[list[Any]]:
+    """The PDF outline (bookmarks) in document order: [level, title, page or -1]."""
+    out: list[list[Any]] = []
+    try:
+        for item in doc.get_toc(max_depth=8):
+            dest = item.get_dest()
+            page = dest.get_index() if dest is not None else None
+            out.append([int(item.level), str(item.get_title() or ""),
+                        int(page) if page is not None and page >= 0 else -1])
+            if len(out) >= MAX_OUTLINE:
+                break
+    except Exception as exc:  # a broken outline never stops the conversion
+        LOG.warning("outline unreadable: %s", exc)
+    return out
+
+
 def metadata(pdf: Path) -> tuple[int, dict[str, str]]:
     doc = pdfium.PdfDocument(str(pdf))
     try:
         meta = {k: str(v) for k, v in sorted(doc.get_metadata_dict(skip_empty=True).items())}
         meta["pdf_version"] = str(doc.get_version() or "")
+        toc = outline(doc)
+        if toc:
+            meta[OUTLINE_KEY] = json.dumps(toc, ensure_ascii=False)
         return len(doc), meta
     finally:
         doc.close()

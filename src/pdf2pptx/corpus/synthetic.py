@@ -11,7 +11,7 @@ import random
 import re
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +45,7 @@ class DeckSpec:
     aspect: str
     builder: Builder
     seed: int
+    extra: dict[str, Any] = field(default_factory=dict)  # merged into truth.json (M7)
 
 
 @dataclass(frozen=True)
@@ -58,9 +59,11 @@ class AssetSet:
 DECKS: list[DeckSpec] = []
 
 
-def deck(name: str, features: tuple[str, ...], aspect: str = "16:9") -> Callable[[Builder], Builder]:
+def deck(name: str, features: tuple[str, ...], aspect: str = "16:9",
+         extra: dict[str, Any] | None = None) -> Callable[[Builder], Builder]:
     def wrap(fn: Builder) -> Builder:
-        DECKS.append(DeckSpec(name, features, aspect, fn, seed=1000 + len(DECKS)))
+        DECKS.append(DeckSpec(name, features, aspect, fn, seed=1000 + len(DECKS),
+                              extra=dict(extra or {})))
         return fn
 
     return wrap
@@ -756,7 +759,9 @@ def d17(prs: Any, rng: random.Random, a: AssetSet) -> None:
         slide_number_box(s, i, 11.9, 6.95)
 
 
-@deck("d18_buildup", ("build_sequence",))
+# a PowerPoint user would build this as one slide with 4 appear clicks
+@deck("d18_buildup", ("build_sequence",),
+      extra={"builds": [{"slides": [0, 1, 2, 3, 4], "steps": 4}]})
 def d18(prs: Any, rng: random.Random, a: AssetSet) -> None:
     items = [
         "Listen to the community",
@@ -801,8 +806,12 @@ def d19(prs: Any, rng: random.Random, a: AssetSet) -> None:
     ext.click_action.hyperlink.address = "https://example.org/details"
 
 
-@deck("d20_speaker_notes", ("speaker_notes",))
+# PowerPoint's PDF export drops speaker notes: corpus/build.py adds each slide's notes
+# to its PDF page as a comment (text annotation), which the converter turns back into notes
+@deck("d20_speaker_notes", ("speaker_notes", "pdf_comments", "core_properties"))
 def d20(prs: Any, rng: random.Random, a: AssetSet) -> None:
+    prs.core_properties.title = "Speaker notes demo"
+    prs.core_properties.author = "pdf2pptx corpus"
     for i, t in enumerate(["Welcome", "The problem", "Our answer"], start=1):
         s = prs.slides.add_slide(prs.slide_layouts[1])
         set_title(s, t)
@@ -810,8 +819,10 @@ def d20(prs: Any, rng: random.Random, a: AssetSet) -> None:
         notes(s, f"Speaker notes for slide {i}: say thank you and introduce '{t}'.")
 
 
-@deck("d21_sections", ("sections",))
+@deck("d21_sections", ("sections", "core_properties"))
 def d21(prs: Any, rng: random.Random, a: AssetSet) -> None:
+    prs.core_properties.title = "Annual plan"
+    prs.core_properties.author = "pdf2pptx corpus"
     titles = ["Agenda", "Where we are", "Numbers", "Stories", "Plans", "Questions"]
     for t in titles:
         s = prs.slides.add_slide(prs.slide_layouts[5] if t != "Agenda" else prs.slide_layouts[2])

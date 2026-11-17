@@ -19,7 +19,7 @@ NOT_YET = {
 def _config(args: argparse.Namespace) -> Config:
     overrides: dict[str, Any] = {}
     for key in ("mode", "tier", "workers", "work_dir", "out_dir", "render_dpi", "text_layout",
-                "tune", "tune_rounds"):
+                "tune", "tune_rounds", "builds", "structure"):
         v = getattr(args, key, None)
         if v is not None:
             overrides[key] = v
@@ -94,6 +94,19 @@ def cmd_structure(args: argparse.Namespace) -> int:
     res = structure.structure_corpus(cfg, only=args.only or None, use_cache=not args.no_cache)
     print(structure.summary_text(res))
     print(f"written: {cfg.scores_dir / 'structure.json'}")
+    return 0
+
+
+def cmd_deck(args: argparse.Namespace) -> int:
+    from .verify import deck
+
+    cfg = _config(args)
+    res = deck.deck_corpus(cfg, only=args.only or None,
+                           out_dir=Path(args.out_dir) / "corpus" if args.out_dir else None)
+    text = deck.summary_text(res)
+    print(text)
+    (cfg.scores_dir / "deck.md").write_text(text + "\n", encoding="utf-8", newline="\n")
+    print(f"written: {cfg.scores_dir / 'deck.json'}")
     return 0
 
 
@@ -191,7 +204,19 @@ def build_parser() -> argparse.ArgumentParser:
                         "(default: on for fidelity and balanced, off for editable)")
     c.add_argument("--tune-rounds", dest="tune_rounds", type=int,
                    help="max re-render rounds of the tuner (default 4)")
+    c.add_argument("--builds", action=argparse.BooleanOptionalAction, default=None,
+                   help="collapse build-up pages into one slide with appear animations "
+                        "(default: on, off in fidelity mode); --no-builds keeps every page")
+    c.add_argument("--structure", action=argparse.BooleanOptionalAction, default=None,
+                   help="slide master / layouts / placeholders / theme references "
+                        "(default on); --no-structure writes the flat M6 deck")
     c.set_defaults(func=cmd_convert)
+
+    dk = sub.add_parser("deck", parents=[common],
+                        help="check converted corpus decks against the truth: masters, "
+                             "slide numbers, builds, theme, sections, notes, links")
+    dk.add_argument("--only", nargs="*", help="corpus names to include")
+    dk.set_defaults(func=cmd_deck)
 
     s = sub.add_parser("score", parents=[common], help="score a PPTX against its PDF")
     s.add_argument("pdf", nargs="?")

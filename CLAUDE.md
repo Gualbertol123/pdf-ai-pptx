@@ -20,6 +20,8 @@ the latest PROGRESS.md entry before starting a prompt.
 .venv\Scripts\pdf2pptx convert ... --text-layout lines  # the M2 one-box-per-line baseline
 .venv\Scripts\pdf2pptx convert ... --tune/--no-tune --tune-rounds N   # M5 tuner (on: fidelity, balanced)
 .venv\Scripts\pdf2pptx convert --corpus --mode fidelity --out-dir out/fidelity  # then score --out-dir out/fidelity
+.venv\Scripts\pdf2pptx convert ... --builds/--no-builds --structure/--no-structure  # M7 deck structure
+.venv\Scripts\pdf2pptx deck [--out-dir D]     # masters / slide numbers / builds / theme / sections / notes vs truth
 ```
 
 Scores go to `work/scores/<label>/` (git-ignored). `work/scores/truth` and `blank` hold
@@ -83,3 +85,16 @@ milestone must beat. Re-run them if missing.
 - Scripts that start the COM worker need an `if __name__ == "__main__":` guard
   (multiprocessing spawn). Shell heredocs choke on some quoting: write longer files
   with the editor tools instead.
+- Structure (M7): pages keep every element; master / layout copies live in
+  `Document.masters` and page elements carry `in_master:` / `in_layout:` notes. The
+  tuner always works on the flat deck (`TextOptions.flat()`, slide = page);
+  `pipeline._finalize` writes the structured deck afterwards (and, in fidelity, keeps it
+  only if it renders like the flat one).
+- python-pptx `_next_shape_id` counts every `@id` of the part: on a slide master that
+  includes the layout ids (2147483649+), and PowerPoint refuses such shape ids. Use
+  `structure.next_id` / `renumber_ids`. A master's body placeholder must be
+  `type="body"` (a content placeholder there makes the file unopenable).
+- COM line bounds include a paragraph's space-after, except for the frame's last
+  paragraph (measured M7); the scorer subtracts it only where it is included.
+- Collapsed build-ups are scored through `verify/expand.py` (one slide per click
+  state). Master / layout shapes count in text stats and COM text layouts.

@@ -244,7 +244,7 @@ def extract(pptx: Path) -> dict[str, Any]:
                 "has_slide_number_field": any(p["has_field"] for p in info["paragraphs"]),
             }
         )
-    return {
+    out = {
         "slide_width_pt": _r(emu_to_pt(prs.slide_width)),
         "slide_height_pt": _r(emu_to_pt(prs.slide_height)),
         "slide_count": len(slides),
@@ -252,3 +252,7 @@ def extract(pptx: Path) -> dict[str, Any]:
         "sections": _sections(prs),
         "slides": slides,
     }
+    core = {"title": prs.core_properties.title or "", "author": prs.core_properties.author or ""}
+    if any(core.values()):  # M7: only decks that set them (d20, d21)
+        out["core"] = core
+    return out

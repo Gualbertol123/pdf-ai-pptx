@@ -63,7 +63,8 @@ def test_truth_is_deterministic(tmp_path: Path) -> None:
         pptx = synthetic.build_deck(spec, tmp_path / f"{spec.name}.pptx", assets)
         fresh = truth.extract(pptx)
         stored = json.loads((CORPUS / "synthetic" / f"{spec.name}.truth.json").read_text("utf-8"))
-        for key in ("name", "category", "features", "aspect", "source", "truth_pptx"):
+        for key in ("name", "category", "features", "aspect", "source", "truth_pptx",
+                    *spec.extra):
             stored.pop(key)
         assert json.loads(json.dumps(fresh, sort_keys=True)) == stored, spec.name
 

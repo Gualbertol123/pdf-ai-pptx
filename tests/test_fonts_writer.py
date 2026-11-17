@@ -166,7 +166,7 @@ def _doc(tmp_path: Path) -> tuple[Document, Path]:
                         run("ple")], notes=["hyphen:2:5"]),
         Paragraph(id="p4", bbox=(0, 0, 1, 1), runs=[run("Pic")], indent_left=14,
                   indent_first=-14, bullet=Bullet(kind="picture", image_id="img1")),
-        Paragraph(id="p5", bbox=(0, 0, 1, 1), runs=[run("7", field_type="slidenum")]),
+        Paragraph(id="p5", bbox=(0, 0, 1, 1), runs=[run("1", field_type="slidenum")]),
     ]
     page = Page(index=0, width=400, height=300, elements=[
         Image(id="img1", bbox=(10, 10, 18, 18), file="dot.png", notes=["bullet_image"]),

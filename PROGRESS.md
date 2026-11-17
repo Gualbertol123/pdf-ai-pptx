@@ -8,7 +8,7 @@
 | 4 | Text understanding and fonts | **done** | 2026-11-12 |
 | 5 | Fidelity tuner | **done** | 2026-11-12 |
 | 6 | Graphics and tables | **done** | 2026-11-17 |
-| 7 | Document structure | not started | |
+| 7 | Document structure | **done** | 2026-11-17 |
 | 8 | Hard pages (OCR, layout model, background cleanup) | not started | |
 | 9 | Local model service, benchmark, judgment, charts | not started | |
 | 10 | Document → deck, UI, packaging | not started | |
@@ -1219,3 +1219,231 @@ animations). Starting points:
   and the `mcid:` / `form:` notes help to recognise them.
 - **Theme colours.** Preset fills, strokes and gradient stops are explicit sRGB now. A
   theme pass can map frequent colours to `accent1..6`.
+
+---
+
+## Milestone 7: document structure (2026-11-17)
+
+### What exists
+
+- **`analyze/links.py`**
+  - **Shape links.** A link annotation whose rectangle matches a shape or picture
+    (IoU ≥ 0.7) becomes that element's click action. Inside a PowerPoint group
+    (shape + shadow picture) the shape wins. The label's runs drop the duplicate link.
+  - **Sections** come from the PDF outline (now read at ingest:
+    `metadata["pdf2pptx:outline"]`, `PARSER_VERSION = "2.3"`).
+    - Nested outline: one section per top-level entry with children. PowerPoint's
+      PDF export writes exactly this for a deck with sections.
+    - A flat outline that bookmarks every page ("Diapositiva N: …") is not sections.
+    - Other flat outlines give one section per entry, with a "Default Section" in front
+      when the first entry starts after page 1.
+  - **Speaker notes**: the contents of comments (text, free-text and markup
+    annotations; popups skipped) on the page.
+  - **Producer** (`metadata["pdf2pptx:producer"]`): PowerPoint / Keynote / Google
+    Slides / Impress from Producer and Creator, plus `slides_like` (landscape pages at
+    16:9, 16:10 or 4:3). Either one makes a *slide producer*, which gets stronger
+    placeholder mapping.
+- **`analyze/fingerprint.py`**: a content hash of an element, independent of ids and
+  position: text and run styling, picture bytes and crop, geometry relative to the
+  frame, fill and line. Used by builds and masters.
+- **`analyze/builds.py`**: page n+1 is a build step of page n when every top-level
+  element of n is on n+1 unchanged (same fingerprint, frame within 1 pt), or is a text
+  block that grew by trailing paragraphs, and n+1 adds something.
+  - Guards: identical pages are not a build, and page n needs a title or two
+    non-background elements.
+  - Chains are recorded as `Page.build_of`. The final page's elements carry
+    `build:<step>`, or `build_para:<i>:<step>` for paragraph-by-paragraph builds.
+    Notes of absorbed pages join the final page's notes.
+- **`analyze/theme.py`**
+  - **Palette.** Colours are weighted by area (fills, gradient stops, table cells),
+    length × width (lines) and characters × size² (text). Near-identical colours
+    merge (RGB distance ≤ 6).
+  - **dk1 / lt1.** `dk1` is the heaviest dark text colour and `lt1` the heaviest light
+    background, each with fallbacks.
+  - **Accents.** They are the heaviest chromatic colours. When ≥ 2 document colours
+    belong to a built-in Office palette (2007-2010, 2013, 2013-2022, 2023), that
+    palette is used in its own order and its unused slots take the document's other
+    colours.
+  - **Hyperlink colour.** `hlink` is the colour of hyperlinked runs.
+  - **Fonts.** Major / minor fonts are the most used title / body families.
+  - **References.** Colours equal to a theme colour get `Color.theme`.
+- **`analyze/masters.py`**
+  1. **Furniture.** Top-level pictures, shapes, groups, backgrounds and footer /
+     header / band text that repeat on ≥ 3 pages (fingerprint + frame within 2 pt).
+     - An occurrence stays on its slide if moving it would put it under a slide
+       element it was drawn above.
+     - Furniture on ≥ 60% of the pages goes to the master, the rest to layouts.
+     - A page missing some master furniture gets a layout that hides the master
+       graphics.
+  2. **Page numbers** (`roles.py` slidenum blocks repeated at one place) become
+     `sldNum` placeholders on the master, every layout and each slide.
+  3. **Layouts.** Pages are clustered by layout signature: title frame (aligned edge
+     + top/bottom), up to two body frames, subtitle, plus their layout furniture.
+     - At most 8 layouts are made; pages that don't fit go to a plain layout.
+     - Layouts get PowerPoint names (Title Slide, Title and Content, Two Content,
+       Title Only, Blank).
+  4. **Placeholders.** `TextBlock.placeholder` is set to title / subTitle / body /
+     body2 when the block fits its layout's slot.
+     - For slide producers: titles from role confidence 0.55, plus body placeholders.
+     - For other producers: only titles ≥ 0.8.
+  - **Pages keep every element.** Master / layout copies are in `Document.masters`;
+    page elements get `in_master:` / `in_layout:` notes, so the flat writer is
+    unchanged. `refresh_copies` re-copies the (tuned) page originals before the final
+    write.
+- **`build/structure.py` + writer.** `TextOptions` gains `structure`, `placeholders`,
+  `theme_refs` and `builds` (from the mode); `.flat()` is the M6 deck.
+  - **Master and layouts.** The master text styles are made neutral (title, body and
+    other = the presentation's default text style), so placeholder text renders
+    exactly like a text box.
+    - The master gets title / body / sldNum placeholders and its furniture. The stock
+      layouts are reused (renamed, cleared, placeholders + furniture) and the rest are
+      removed.
+    - Master / layout shape ids are renumbered, see the measured facts.
+  - **Placeholders on the slides.** Slide placeholders are the writer's text boxes
+    converted in place, with their frame, insets and run properties explicit. A
+    slide-number field is written only where it shows the PDF's number.
+  - **Theme.** The theme part gets the palette and fonts in every mode. Colours become
+    `schemeClr` (dk1/lt1/dk2/lt2 → tx1/bg1/tx2/bg2) and fonts `+mn-lt` / `+mj-lt`
+    only with `theme_refs` (balanced, editable).
+  - **Builds.** Only the final page of a chain is written. A `p:timing` tree gives
+    one click per step with appear effects (whole shapes, or `pRg` paragraph ranges
+    with `bldP build="p"`).
+  - **Notes, sections, links, properties.** Speaker notes go to notes slides. Sections
+    become `p14:sectionLst`, mapped through the page → slide map. Shape click actions
+    are external or jump to a slide. Title / author / subject / keywords come from the
+    PDF.
+  - If the master write fails, the deck is rewritten flat.
+- **Pipeline / config**
+  - Tuning runs on the flat deck (slide = page). `_finalize` then writes the
+    structured deck from the tuned IR.
+  - **Fidelity check.** In fidelity mode `verify/deck.render_check` renders the
+    structured and the flat deck in PowerPoint (72 DPI). The structured deck is kept
+    only if every slide pair has SSIM ≥ 0.995; otherwise, or without PowerPoint, the
+    flat deck is written.
+  - `Config.builds` (None = mode default: off in fidelity) and `Config.structure`.
+  - CLI: `convert --builds/--no-builds --structure/--no-structure`; `pdf2pptx deck`.
+  - `STAGE_VERSIONS["analyze"] = "structure-7.1"`.
+- **Scoring**
+  - **Builds.** `verify/expand.py` expands each animated slide into one slide per
+    click state (zip-level copy without the later shapes / paragraphs), so a collapsed
+    build-up is still scored page by page.
+  - **Master and layout shapes.** `ppt_com.text_layout` and `pptx_stats` include
+    master and layout shapes that render on the slide (not placeholders; the master
+    only when the layout shows it). In `text_sim` order they come after the slide's
+    content and before its footer placeholders.
+  - **Reference renders.** These no longer draw annotations: comment icons are not
+    page content.
+- **Corpus**
+  - d18 declares its expected build in the truth (`builds`).
+  - d20's PDF gets each slide's notes as a comment, since PowerPoint's export drops
+    notes.
+  - d20 and d21 set a title and author (truth `core`).
+  - Only these three decks were rebuilt.
+
+### Measured facts that later milestones rely on
+
+- **PowerPoint's PDF export** (SaveAs PDF):
+  - It writes an outline. A deck without sections gets one bookmark per slide
+    ("Diapositiva N: <title>"); a deck with sections gets a section level with the
+    slides nested under it.
+  - It keeps the document title and author.
+  - It drops speaker notes and `mailto:` run links. URL links and slide jumps (on runs
+    and shapes) become link annotations.
+- **python-pptx `_next_shape_id` counts every `@id` of the part.** On a slide master
+  that includes the layout ids (2147483649+), and PowerPoint refuses to open a file
+  with shape ids that large.
+  - Master and layout shape ids are renumbered after writing (connector references
+    follow).
+  - A master body placeholder must be `type="body"`: a content placeholder (`<p:ph
+    idx="1"/>`) on the master also makes the file unopenable.
+- **With neutral master text styles, a placeholder renders exactly like the text box
+  it replaces.** The neutral styles are the presentation's default text style for
+  title, body and other; slide placeholders keep explicit frame, insets, anchor and
+  run properties. Structured vs flat render: SSIM 1.0 on every slide of all 33
+  corpus decks (72 DPI, fidelity check).
+- **COM line bounds include a paragraph's space-after, except for the frame's last
+  paragraph.** Three test boxes (20 pt text, 10 pt after): 34 / 34 / 24 pt.
+  - The scorer used to subtract space-after on the last line too. That made a
+    one-paragraph build state look 7.7 pt off.
+  - Fixed in `ppt_com._collect_text_frame`. Rescoring M6 with the fix changes
+    nothing: no M6 frame ended with space-after.
+- **Text order (`text_sim`).** Master shapes render below slide shapes, but
+  PowerPoint's reading order leaves them out. The scorer reads master / layout text
+  after the slide's content and before its footer placeholders. With the master
+  text read first, `text_sim` on d17 fell to 0.33.
+
+### Checks
+
+| Check | Target | Result |
+|---|---|---|
+| Repeated logo / footer / slide number in the master, not per slide | d17 | **ok**: master has the logo picture, the footer text box and a `sldNum` placeholder; no slide has a picture or the footer text; the white page background is the master background |
+| Slide-number fields present | every truth slide with one | **5/5** (d17), each a `sldNum` placeholder with a `slidenum` field |
+| Build-up collapses to the right slides and steps (COM `TimeLine.MainSequence.Count`) | d18: 1 slide, 4 steps | **1 slide, [4]**; `--no-builds` gives 5 slides again (test) |
+| Theme accents match truth for ≥ 4 of 6 | | **6/6 decks whose PDF draws ≥ 4 of the truth accents** reach ≥ 4/6 (d09, d10, d12, d14, d16, d26). Over all 28 decks: 12/28. 16 decks draw at most 1 truth accent (black text only), so their accents can't be recovered from the PDF. Theme fonts = truth on 27/28 (d24 mixes many families) |
+| Sections match truth | d21 | **ok**: Introduction [0,1], Results [2,3], Plans [4,5] |
+| Speaker notes match truth | d20 | **3/3** (from PDF comments) |
+| Hyperlinks | d19 | **4/4 recoverable**: 2 URLs on runs, the button's slide jump and the green shape's URL, both on the shapes. `mailto:` is not in the PDF |
+| Document properties | d20, d21 | **2/2** title + author |
+| Fidelity: masters / theme only within SSIM tolerance | | `render_check` on every fidelity deck: min SSIM **1.0** on all 33, all kept structured |
+| No score regresses > 1% vs M6 | every slide, every metric | **0 drops** in balanced, fidelity and editable (M6 decks regenerated from commit 1f672bd and rescored with the same scorer) |
+| Paragraph / preset / table structure (`pdf2pptx structure`) | unchanged | 54/56 slides, 215/215 runs, 141/141 bullets, 44/44 presets, 4/4 synthetic tables, as in M6 |
+| `pytest -q`, `ruff check .`, `mypy` | clean | **168 passed** (~4.6 min, with PowerPoint), clean, clean |
+| `convert --corpus --no-cache` | | 33/33 convert and open in PowerPoint (58 slides from 62 pages in balanced / editable, 62 in fidelity) |
+| Determinism | byte-identical | two structured writes of d17-d21 and d26: identical sha256 |
+
+### Scores (`work/scores/m6r_*` = M6 decks rescored, `m7_*`)
+
+| mode | label | ssim median (mean) | text_sim (mean) | pos_err median (mean) | composite median (mean) |
+|---|---|---|---|---|---|
+| balanced | M6 → M7 | 0.9947 (0.99071 → 0.99075) | 1.000 (0.9491 → 0.9491) | 0.440 (0.457 → 0.457) | 0.998 (0.9651 → 0.9652) |
+| fidelity | M6 → M7 | 0.9947 (0.99071 → 0.99075) | 1.000 (0.9491) | 0.440 (0.457) | 0.998 (0.9651) |
+| editable | M6 → M7 | 0.9946 (0.99068 → 0.99073) | 1.000 (0.9491) | 0.444 (0.460) | 0.998 (0.9651) |
+
+- The scores are flat by design: M7 changes how the deck is built, not what it looks
+  like.
+- d18 is scored state by state through the expansion. All 5 states match M6.
+- Corpus output (balanced):
+  - 7 master elements (5 logos → 1), 43 layouts (58 slides), 50 title / 28 body /
+    3 second-body / 2 subtitle / 5 slide-number placeholders.
+  - 39 slide backgrounds (59 in M6: the rest are master backgrounds).
+  - 4 animations, 3 notes, 3 sections, 2 shape links.
+
+**Time** (convert, per page; M6 regenerated now on the same machine):
+- balanced: median 1.21 → 1.87 s. The flat deck is written once more before tuning,
+  plus the final structured write.
+- fidelity: 1.13 → 2.39 s. The render check renders the structured and the flat deck.
+- editable (untuned): 0.37 → 0.47 s.
+- Analysis of the structure: < 0.1 s per page.
+
+### Examples of remaining misfits
+
+1. **Accents that the PDF never draws can't be recovered.**
+   - A black-and-white deck gets the default Office 2013-2022 palette.
+   - Order follows weight unless a built-in palette is recognised: d25's custom theme
+     has 3 of its accents, 1 in its own slot.
+2. **One master per deck.**
+   - Decks mixing two designs get one master plus layouts (and layouts hiding the
+     master) instead of two masters.
+   - At most 8 layouts; the rest use a plain layout and keep text boxes.
+3. **Builds are additive only.** Appear steps are detected, but not disappearing
+   elements, highlights or motion. A build-up whose pages carry different page numbers
+   stays separate pages.
+4. **Speaker notes come only from comments.**
+   - A PowerPoint "notes pages" PDF (slide image + notes text per page) is not
+     recognised.
+   - PowerPoint's normal export has no notes at all, so d20's notes are corpus
+     comments.
+5. **Body placeholders only for slide producers.** For reports, only confident titles
+   become placeholders. Body text there stays text boxes, as do subtitles under a body.
+6. **The fidelity render check costs a second render** (~1.2 s per page).
+
+### Next
+
+Milestone 8: hard pages (OCR, layout model, background cleanup). Starting points:
+
+- Scanned pages are still full pictures (s01, s02: text_sim 0). OCR text should go
+  through the M4 grouping and the M7 masters: a scanned deck's repeated logo and
+  footer then land in the master like d17's.
+- `masters._eligible` and `builds.match_pages` compare fingerprints exactly. OCR
+  text and rasters differ slightly between pages, so they will need tolerant
+  comparisons (text edit distance, image hashes).
