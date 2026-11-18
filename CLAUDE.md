@@ -22,6 +22,10 @@ the latest PROGRESS.md entry before starting a prompt.
 .venv\Scripts\pdf2pptx convert --corpus --mode fidelity --out-dir out/fidelity  # then score --out-dir out/fidelity
 .venv\Scripts\pdf2pptx convert ... --builds/--no-builds --structure/--no-structure  # M7 deck structure
 .venv\Scripts\pdf2pptx deck [--out-dir D]     # masters / slide numbers / builds / theme / sections / notes vs truth
+.venv\Scripts\pdf2pptx setup models --lite   # M8 ONNX models (~346 MB, pinned + sha256) -> %LOCALAPPDATA%\pdf2pptx\models
+.venv\Scripts\pdf2pptx setup models --status --verify
+.venv\Scripts\pdf2pptx doctor [--no-models]  # provider per model (loading LaMa takes ~15 s)
+$env:PDF2PPTX_ML_DEVICE = "cpu"   # force the CPU (auto | cpu | dml); PDF2PPTX_MODELS_DIR overrides the folder
 ```
 
 Scores go to `work/scores/<label>/` (git-ignored). `work/scores/truth` and `blank` hold
@@ -98,3 +102,19 @@ milestone must beat. Re-run them if missing.
   paragraph (measured M7); the scorer subtracts it only where it is included.
 - Collapsed build-ups are scored through `verify/expand.py` (one slide per click
   state). Master / layout shapes count in text stats and COM text layouts.
+- Hard pages (M8): stages are ingest → triage → **ocr** → analyze. The OCR stage key
+  includes which engine / models are installed (`pipeline.stage_versions`). OCR glyphs
+  are ordinary `Glyph`s with `source="ocr"` (ids `p<i>_o<n>`, fonts `ocr:<Family>[-Bold]`)
+  so the M4 grouping, M5 tuner and M7 structure handle them.
+- Model runtime facts (Radeon 780M, ORT-DirectML 1.24): LaMa fails on DirectML (a MatMul
+  of its Fourier unit) after a ~20 s compile and takes ~10-15 s just to load on the CPU:
+  it is pinned to the CPU (`runtime.PREFER_CPU`) and only runs on non-uniform
+  backgrounds. Warm a model up on realistic input: an all-zero mask passed LaMa's DML
+  warm-up. The cls model is 10x faster on the CPU; det / rec / layout run on DML.
+- The PP-OCR orientation (cls) model calls some upright lines upside down with > 0.9
+  confidence: flagged lines are read both ways and the better reading wins.
+- Skew: projection profiles need soft binning + smoothing (integer bins favour exactly
+  0°) and per-strip scoring (unaligned columns pulled s02 0.3° off). 0.1° of skew error
+  costs ~0.01 SSIM on a dense page. `text_group` writes a bucket's median exact angle.
+- The scorer's reference text is the PDF text layer: recovering outlined text (d28)
+  *lowers* text_sim against it although the slide now matches the truth deck.

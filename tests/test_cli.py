@@ -16,8 +16,14 @@ def test_parser_has_all_subcommands() -> None:
 
 
 def test_stubs_exit_cleanly(capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.main(["setup", "models"]) == 3
-    assert "Milestone 8" in capsys.readouterr().err
+    assert cli.main(["setup", "llm"]) == 3
+    assert "Milestone 9" in capsys.readouterr().err
+
+
+def test_setup_models_status(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["setup", "models", "--status"]) == 0
+    out = capsys.readouterr().out
+    assert "ocr_det" in out and "layout" in out and "inpaint" in out
 
 
 def test_report_without_powerpoint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -59,7 +65,7 @@ def test_doctor_parts_without_powerpoint() -> None:
 
 @pytest.mark.powerpoint
 def test_doctor_full_report() -> None:
-    r = doctor.run(Config())
+    r = doctor.run(Config(), load_models=False)
     assert r["powerpoint_com"]["available"]
     text = doctor.format_report(r)
     for key in ("Python", "PowerPoint COM", "onnxruntime", "Vulkan", "RAM", "GPU"):

@@ -12,7 +12,7 @@ from . import __version__, log
 from .config import MODES, TIERS, Config, load_config
 
 NOT_YET = {
-    "setup": "Milestone 8 (models) / Milestone 9 (llama.cpp)",
+    "setup llm": "Milestone 9 (llama.cpp)",
 }
 
 
@@ -30,7 +30,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     from . import doctor
 
     cfg = _config(args)
-    r = doctor.run(cfg)
+    r = doctor.run(cfg, load_models=not args.no_models)
     print(json.dumps(r, indent=1) if args.json else doctor.format_report(r))
     return 0
 
@@ -167,10 +167,32 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_stub(args: argparse.Namespace) -> int:
-    print(f"`pdf2pptx {args.command}` is not implemented yet: arrives in {NOT_YET[args.command]}.",
-          file=sys.stderr)
-    return 3
+def cmd_setup(args: argparse.Namespace) -> int:
+    if args.what != "models":
+        what = f"setup {args.what or ''}".strip()
+        print(f"`pdf2pptx {what}` is not implemented yet: arrives in "
+              f"{NOT_YET.get(what, 'a later milestone')}.", file=sys.stderr)
+        return 3
+    from .ml import models
+
+    if args.status:
+        for s in models.status(verify=args.verify):
+            print(f"{s['status']:16s} {s['name']:20s} {s['size'] / 2**20:7.1f} MB  {s['file']}")
+        return 0
+
+    def ask(q: str) -> bool:
+        try:
+            return input(f"{q} [y/N] ").strip().lower() in ("y", "yes")
+        except EOFError:
+            return False
+
+    res = models.install("lite", assume_yes=args.yes, ask=ask)
+    if res.get("reason"):
+        print(f"nothing downloaded: {res['reason']}", file=sys.stderr)
+        return 1
+    print(f"installed {len(res['installed'])} file(s); manifest: "
+          f"{models.models_dir() / 'manifest.json'}")
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -256,12 +278,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     d = sub.add_parser("doctor", parents=[common], help="check this machine")
     d.add_argument("--json", action="store_true")
+    d.add_argument("--no-models", dest="no_models", action="store_true",
+                   help="list the model files without loading them (loading LaMa takes ~10 s)")
     d.set_defaults(func=cmd_doctor)
 
     u = sub.add_parser("setup", parents=[common], help="download models / tools")
     u.add_argument("what", nargs="?", choices=("models", "llm"))
-    u.add_argument("--lite", action="store_true")
-    u.set_defaults(func=cmd_stub)
+    u.add_argument("--lite", action="store_true",
+                   help="the ONNX models: OCR, layout, inpainting (the only pack so far)")
+    u.add_argument("--status", action="store_true", help="list the model files and exit")
+    u.add_argument("--verify", action="store_true", help="with --status: check sha256")
+    u.add_argument("--yes", action="store_true", help="do not ask before large downloads")
+    u.set_defaults(func=cmd_setup)
     return p
 
 

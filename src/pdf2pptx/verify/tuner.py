@@ -1252,6 +1252,13 @@ def tune_document(doc: Document, out: Path, work_dir: Path, pdf: Path, opts: Tex
     if opts.layout != "blocks":
         rep = TuneReport(enabled=False, skipped="text layout 'lines' is not tuned")
         return rep
+    probe = Tuner(doc, out, work_dir, pdf, opts, limits, rounds=rounds, engine=None,
+                  slide_pass=slide_pass, render_dpi=render_dpi)
+    probe._collect()
+    if not probe.states:  # nothing to tune (e.g. only rotated OCR text): skip PowerPoint
+        rep = TuneReport(enabled=True, skipped="no tunable text blocks")
+        doc.metadata["pdf2pptx:tuner"] = json.dumps(rep.as_dict(), sort_keys=True)
+        return rep
     if engine is None:
         try:
             from . import ppt_com

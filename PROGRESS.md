@@ -9,7 +9,7 @@
 | 5 | Fidelity tuner | **done** | 2026-11-12 |
 | 6 | Graphics and tables | **done** | 2026-11-17 |
 | 7 | Document structure | **done** | 2026-11-17 |
-| 8 | Hard pages (OCR, layout model, background cleanup) | not started | |
+| 8 | Hard pages (OCR, layout model, background cleanup) | **done** | 2026-11-18 |
 | 9 | Local model service, benchmark, judgment, charts | not started | |
 | 10 | Document → deck, UI, packaging | not started | |
 
@@ -1447,3 +1447,188 @@ Milestone 8: hard pages (OCR, layout model, background cleanup). Starting points
 - `masters._eligible` and `builds.match_pages` compare fingerprints exactly. OCR
   text and rasters differ slightly between pages, so they will need tolerant
   comparisons (text edit distance, image hashes).
+
+---
+
+## Milestone 8: hard pages: OCR, layout model, background cleanup (2026-11-18)
+
+### What exists
+
+- **`pdf2pptx setup models --lite`** (`ml/models.py`, `ml/manifest.json`)
+  - Eight files, 346 MB, all Apache-2.0, each pinned to a Hugging Face commit and a
+    sha256 (the manifest records version, license, upstream and size): PP-OCRv4 mobile
+    det, PP-OCR v2.0 cls, PP-OCRv5 mobile **Latin** rec + dict, PP-OCRv4 mobile rec
+    (multilingual, character list in the model), **PP-DocLayoutV3** (+ its config) and
+    **LaMa** (big-lama, fp32, 512 × 512).
+  - Downloads are resumable (HTTP Range on a `.part` file), verified and installed
+    atomically. Above 1 GB in total it asks (`--yes` skips). The installed copy of the
+    manifest is `%LOCALAPPDATA%\pdf2pptx\models\manifest.json`. `--status [--verify]`.
+- **`ml/runtime.py`**: one session factory.
+  - DirectML first, CPU fallback when the session, its warm-up or a later run fails.
+    `PDF2PPTX_ML_DEVICE=cpu|dml|auto`.
+  - Measured exceptions stay on the CPU (`PREFER_CPU`): LaMa and the cls model.
+  - Every run is timed; the OCR and layout reports carry per-document provider / calls
+    / seconds (`stats_since`: sessions live for the whole process).
+  - Missing onnxruntime or model → `None` → rule fallback.
+- **OCR stage** (`ml/ocr.py`, `ml/ocr_engine.py`, `ml/fontfit.py`, `ml/winocr.py`)
+  - A new cached stage between triage and analyze. Its key includes which engine and
+    models are installed. It runs only on pages triage flagged.
+  - **Scanned**: render at the scan's resolution (150-300 DPI), estimate the skew
+    (per-strip projection profiles, soft-binned), deskew, then detect (DB) → orientation
+    → recognise (CTC, with per-character x ranges). Lines the Latin model reads below
+    0.6 are retried with the multilingual model.
+  - **Glyphs from words.**
+    - Each word's ink extent comes from the line's ink columns, split half-way between
+      CTC words.
+    - The installed family whose advances best explain the word widths is chosen per
+      page (Calibri / Arial / Times New Roman / Cambria / Verdana).
+    - Size = least-squares fit of the word widths, one size per cluster of lines,
+      snapped to a whole / half point. Bold from stroke width ÷ x-height.
+    - Glyphs get `source="ocr"`, the recogniser's confidence, the sampled ink colour
+      and the skew as rotation, then go through the M4 grouping unchanged.
+  - Bullet dots / squares / dashes left of a line (the detector skips small blobs) are
+    found by shape.
+  - Lines are emitted in the layout model's reading order (as a born-digital content
+    stream would have them), so two-column pages group by column.
+  - **Windows OCR** (`Windows.Media.Ocr`) is the engine when the ONNX models are
+    missing (words + boxes, no confidence: 0.8 assumed).
+  - **Broken text layer**: the page render is OCR'd. A line whose OCR character count
+    equals its PDF glyph count keeps the PDF geometry and takes the OCR text; other
+    lines are replaced by OCR glyphs with the PDF's font and size.
+  - **Outlined text**: letter-shaped filled paths are clustered. The cluster alone is
+    rendered (everything else whited out), turned upright along its minimum-area-rect
+    direction and OCR'd. It is replaced by glyphs only at confidence ≥ 0.9, in the
+    document's main font family.
+- **`ml/inpaint.py`**
+  - Text mask = the converted words' ink, dilated, mapped back to the skewed original.
+  - Rules first: a mask region whose surrounding ring is flat gets the ring's median
+    colour plus noise of the ring's strength. Only regions on a non-uniform background
+    go to LaMa (Telea when LaMa is missing).
+  - The cleaned page becomes the slide background; the text sits on top.
+- **`ml/layout.py`**: PP-DocLayoutV3 regions (25 classes, reading order).
+  - Scanned pages: text in formula / picture / chart / seal regions stays in the
+    picture (formulas are a logged gap); the regions are stored with the page.
+  - Born-digital pages: the model runs only on pages with a block whose rule role
+    confidence is < 0.65. Disagreements are logged; the model's role is adopted only
+    for title / body / caption, model score ≥ 0.8, no placeholder.
+- **Pipeline / report / doctor**
+  - `convert` prints an `ml` summary: per OCR page (engine, words, confidence, skew,
+    font, background fills, seconds), models with provider and time, and the layout
+    trigger rate and disagreements.
+  - The debug report lists the same facts per document, plus every layout disagreement.
+  - `doctor` loads each model and prints its provider, load and warm-up time
+    (`--no-models` only lists the files).
+  - The tuner checks for tunable blocks before it starts PowerPoint.
+  - `text_group` writes the bucket's median exact angle. For slanted text it takes glyph
+    extents from the advance: an axis-aligned box of a 30° glyph overshoots the next
+    glyph.
+- `pyproject.toml`: optional extra `ml` (onnxruntime-directml, winrt packages).
+
+### Measured facts that later milestones rely on
+
+- **Providers on the Radeon 780M (ORT-DirectML 1.24.4)**, cold process:
+
+  | model | provider | load s | warm-up s | run |
+  |---|---|---|---|---|
+  | ocr_det | DML | 0.30-0.42 | 0.05-0.08 | 0.22 s / page (CPU 0.23) |
+  | ocr_cls | CPU (pinned) | 0.05-0.09 | 0.00 | 0.01-0.03 s / page (DML 0.2) |
+  | ocr_rec_latin | DML | 0.21-0.30 | 0.05 | 1.05 s / 55 long lines, batch 8 (CPU 1.47) |
+  | ocr_rec_multi | DML | 0.26 | 0.07 | weak lines only |
+  | layout | DML | 1.0-1.2 | 0.6 | 0.19 s / page (CPU 0.75) |
+  | inpaint (LaMa) | CPU (pinned) | 10-16 | 2.2 | 2.1 s per 512 tile |
+
+  - **LaMa fails on DirectML.** A MatMul in its Fourier unit raises "Parametro non
+    corretto" after a ~20 s compile. Its DML warm-up on an all-zero mask passed, so
+    warm-ups now use a real hole. The CPU load time does not depend on the
+    optimisation level (9.5-12 s).
+  - Rec batch 8 is faster than 16 / 32 / 64 on DML. On the CPU, 16 threads is slower
+    than 8.
+- **The PP-OCR cls model calls some upright lines upside down with > 0.9 confidence.**
+  On s02 it dropped "largest increase came after the local library". Flagged lines are
+  now read both ways.
+- **Skew.**
+  - Whole-page projection profiles gave s02 −0.4° (true −0.721°): the two columns'
+    lines do not line up. Integer bins also favour exactly 0°.
+  - Per-strip scoring with soft binning + smoothing gives 1.00 / −0.97 / −0.68 against
+    the true 0.993 / −0.93 / −0.721.
+  - The 0.3° error cost s02 0.03 SSIM (0.872 → 0.904).
+- **SSIM ceiling on a scan.**
+  - The cleaned background plus the *source* PDF's crisp text, perfectly placed, scores
+    0.968 on s02. PowerPoint's crisp text against blurred scanned ink is the remaining
+    loss.
+  - As a picture (M7) the page scored 0.975.
+- **Thresholded scan ink is ~1.2% narrower than the font's advances**
+  (`INK_BIAS = 1.012`).
+- **Stroke ÷ x-height**: regular Arial / Calibri 0.149-0.166, bold Arial 0.21-0.215.
+- **Determinism.** Two fresh conversions of s01, s02 and d28 are byte-identical. s01's
+  slide XML is identical on DML and on the CPU.
+
+### Checks
+
+| Check | Target | Result |
+|---|---|---|
+| Scanned: real_text_ratio | ≥ 0.95 | **s01 0.988, s02 0.996** (M7: 0, 0) |
+| Scanned: text_sim | ≥ 0.95 | **s01 0.997, s02 0.979** (M7: 0, 0) |
+| Scanned: ssim | ≥ 0.90 | **s01 0.961, s02 0.904** (M7, as a picture: 0.984, 0.975) |
+| Scanned: ≤ 3 s / page median | | **2.55 s** on DML, 2.80 s forced CPU (standalone balanced convert, cold process, median over the 3 scanned pages). s01: 2.55 s / page. s02: 6.04 s for its single page, which carries the ~3 s model load. Warm OCR stage: 1.0 s per slide page, 2.6 s for the dense report page. In the 6-worker corpus run: 4.2 / 9.7 s (shared CPU / GPU) |
+| Born-digital scores within 1% | | **0 drops** on the born-digital slides in balanced, fidelity and editable (per slide, per metric, vs `m7_*`), except d28, whose outlined labels are text now (below) |
+| Trigger rate | rare | OCR on **4 / 62 pages** (3 scanned, 1 outlined). Layout model on **12 / 58** non-scanned pages (a block below 0.65 role confidence) plus the 3 scanned pages. **2 disagreements** (rule subtitle vs model text), logged, not adopted: 0 roles changed. LaMa: **0** runs on the corpus (paper is uniform); it runs in the stripes test |
+| Forcing CPU | works, slower | `PDF2PPTX_ML_DEVICE=cpu`: same scores, same slide XML, 2.80 vs 2.55 s / page. `doctor` shows every model on the CPU, "forced" |
+| Missing models | fallback | the page stays a picture, with "OCR unavailable (run `pdf2pptx setup models --lite`)" in the triage reason. Tests run with an empty models dir |
+| Broken text | | simulated (rot13 text layer on d23): triage → broken_text, 6 lines remapped onto the PDF glyphs, 1 replaced; 0.998 similarity to the original |
+| Outlined text | | d28: both labels OCR'd (0.999, 0.998) and replaced by Calibri 18 pt at 30° / −8°, as in the truth. Against the truth deck's text: text_sim **1.0**, real_text **1.0** |
+| Structure / deck checks | unchanged | structure 55/56 slides (M7: 54), runs 217/217, bullets 143/143, presets 44/44, tables 4/4. `deck`: every check as in M7 |
+| `pytest -q`, `ruff check .`, `mypy` | clean | **192 passed** (~5 min with PowerPoint and models; model tests skip without them), clean, clean |
+| `convert --corpus` | | 33/33 convert and open in PowerPoint in all three modes |
+
+### Scores (`work/scores/m7_*` → `m8_*`, median (mean) over slides)
+
+| mode | ssim | text_sim | real_text | pos_err | composite |
+|---|---|---|---|---|---|
+| balanced | 0.9947 → 0.9946 (0.9908 → 0.9887) | 1.000 (0.9491 → **0.9896**) | 1.000 (0.9491 → **0.9971**) | 0.440 → 0.446 (0.457 → 0.720) | 0.998 (0.9651 → **0.9889**) |
+| fidelity | 0.9947 → 0.9946 (0.9908 → 0.9887) | 1.000 (0.9491 → 0.9896) | 1.000 (0.9491 → 0.9971) | 0.440 → 0.446 | 0.998 (0.9651 → 0.9889) |
+| editable | 0.9946 (0.9907 → 0.9887) | 1.000 (0.9491 → 0.9896) | 1.000 (0.9491 → 0.9971) | 0.444 → 0.452 | 0.998 (0.9651 → 0.9889) |
+
+- The mean ssim and pos_err moves come from the three scanned slides.
+- **Scanned ssim** falls because a picture became editable text. It is ≥ 0.90 on every
+  slide.
+- **pos_err on s01 is 7.5 pt.** COM measures the word bounds of the ~1° rotated text
+  boxes unrotated (480 pt × sin 1° ≈ 8 pt). The overlay shows the words in place.
+- **d28 drops by the metric's construction.**
+  - Its reference text is the PDF text layer, which lacks the outlined labels:
+    text_sim 1.0 → 0.542, composite 0.900 → 0.795, boxes 3 → 5.
+  - Against the truth deck's text it is 1.0.
+  - region_ssim_min 0.987 → 0.921: the PowerPoint text sits ~0.7 pt off the outlines
+    (see misfits).
+- **Time** (convert per page, corpus run, median):
+  - balanced 1.27 → 1.25 s.
+  - fidelity 1.66 → 2.24 s: the PowerPoint render checks run while OCR workers load
+    models.
+  - editable 0.28 → 0.61 s: the OCR'd decks and model loads run in the pool.
+
+### Examples of remaining misfits
+
+1. **OCR text is not tuned.** The tuner skips rotated blocks, and scanned text carries
+   the scan's skew. Line breaks and widths come from the OCR geometry alone (s02
+   line-break match 0.98).
+2. **Crisp text vs a blurred scan.** s02 scores 0.904, against 0.968 with perfectly
+   placed text and 0.975 as a picture. Dense small text costs most (region min 0.73).
+3. **Cold start ~3 s per process** (layout 1.6 s, OCR models 0.6 s, fonts 0.3 s). LaMa
+   adds 10-15 s the first time a non-uniform background needs it.
+4. **Outlined labels sit ~0.7 pt off**, perpendicular to the baseline (both angles, same
+   direction). Probably half-pixel centre conventions in the crop rotation.
+5. **Upside-down scanned lines stay in the picture** (a gap). So do formulas (no math
+   model; layout regions only).
+6. **Scanned decks get no masters.** Each page's background differs, and repeated logos
+   stay inside the picture. One font family per page.
+7. **Broken text has no corpus file.** It is tested by simulation only.
+
+### Next
+
+Milestone 9: local model service, benchmark, judgment pass, charts. Starting points:
+
+- `layout.compare_roles` already logs the rule / model disagreements with both
+  confidences. The judgment pass can take exactly those blocks.
+- Chart regions (layout label `chart`) are kept as pictures on scans and found on
+  born-digital pages (d14-d16, r03): candidates for chart-data extraction.
+- `runtime.session` + `PREFER_CPU` is the place for per-model provider decisions.

@@ -66,7 +66,20 @@ def check_gpu() -> dict[str, Any]:
         return {"gpus": [], "error": str(exc)}
 
 
-def run(cfg: Config) -> dict[str, Any]:
+def check_models(load: bool = True) -> dict[str, Any]:
+    """M8 models: installed files and, with ``load``, the provider each one runs on."""
+    try:
+        from .ml import models, probe
+
+        if not load:
+            return {"models": {s["name"]: {"installed": s["status"] == "ok"}
+                               for s in models.status()}}
+        return probe.run()
+    except Exception as exc:
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+def run(cfg: Config, load_models: bool = True) -> dict[str, Any]:
     return {
         "python": {"version": platform.python_version(), "executable": sys.executable},
         "os": platform.platform(),
@@ -77,6 +90,7 @@ def run(cfg: Config) -> dict[str, Any]:
         "onnxruntime": check_onnxruntime(),
         "vulkan": check_vulkan(),
         "models_dir": {"path": str(cfg.models_dir), "exists": cfg.models_dir.is_dir()},
+        "ml": check_models(load_models),
         "tier": cfg.resolved_tier(),
         "mode": cfg.mode,
     }
@@ -111,5 +125,23 @@ def format_report(r: dict[str, Any]) -> str:
     md = r["models_dir"]
     state = "exists" if md["exists"] else "not created yet"
     lines.append(f"  Models dir      {md['path']} ({state})")
+    ml = r.get("ml", {})
+    if "error" in ml:
+        lines.append(f"  Models          unavailable: {ml['error']}")
+    for name, m in sorted(ml.get("models", {}).items()):
+        if not m.get("installed"):
+            lines.append(f"  - {name:15s} not installed (pdf2pptx setup models --lite)")
+        elif "provider" not in m:
+            lines.append(f"  - {name:15s} installed")
+        else:
+            prov = (m.get("provider") or "FAILED").replace("ExecutionProvider", "")
+            why = f" ({m['fallback']})" if m.get("fallback") else ""
+            lines.append(f"  - {name:15s} {prov}{why}, load {m.get('load_s')} s, "
+                         f"warm-up {m.get('warmup_s')} s")
+    if "windows_ocr" in ml:
+        lines.append(f"  Windows OCR     {'available' if ml['windows_ocr'] else 'not available'}"
+                     " (fallback OCR engine)")
+    if ml.get("device") and ml["device"] != "auto":
+        lines.append(f"  ML device       {ml['device']} (PDF2PPTX_ML_DEVICE)")
     lines.append(f"  Tier / mode     {r['tier']} / {r['mode']}")
     return "\n".join(lines)

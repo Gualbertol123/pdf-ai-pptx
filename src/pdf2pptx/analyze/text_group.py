@@ -244,6 +244,10 @@ def _to_local(ctx: Ctx, glyphs: list[tuple[int, Glyph]]) -> list[LG]:
         adv = ctx.advance(g, g.text if not space else " ")
         if adv is None:
             adv = max(hi - a, 0.25 * g.size) if hi > lo else 0.25 * g.size
+        if ctx.rot % 90.0 > 0.5 and ctx.rot % 90.0 < 89.5:
+            # an axis-aligned box of a slanted glyph overshoots along the line (into
+            # the next glyph): use the advance and the em box instead
+            lo, hi, top, bot = a, a + adv, b - 0.8 * g.size, b + 0.2 * g.size
         out.append(LG(g=g, seq=seq, a=a, b=b, lo=lo, hi=hi, top=top, bot=bot, adv=adv,
                       space=space))
     return out
@@ -1007,10 +1011,15 @@ def group_page(page: Page, fonts: dict[str, FontRef], matches: dict[str, FontMat
         r = round(geom.norm_angle(g.rotation) * 2) / 2 % 360.0
         by_rot.setdefault(r, []).append((i, g))
     out: list[TextBlock] = []
-    for rot in sorted(by_rot):
+    for key in sorted(by_rot):
+        # the bucket's own (median) angle: OCR text on a scan skewed by -0.4° must not
+        # be written at -0.5° (a 0.1° error drifts 1.2 pt over a 700 pt column)
+        angles = sorted(geom.norm_angle(g.rotation) for _, g in by_rot[key])
+        rot = angles[len(angles) // 2]
+        rot = key if abs(((rot - key + 180.0) % 360.0) - 180.0) > 0.5 else round(rot, 2) % 360.0
         u, n = _dirs(rot)
         ctx = Ctx(page=page, fonts=fonts, matches=matches, rot=rot, u=u, n=n)
-        lgs = _to_local(ctx, by_rot[rot])
+        lgs = _to_local(ctx, by_rot[key])
         lines = _form_lines(lgs)
         for ln in lines:
             _words(ctx, ln)

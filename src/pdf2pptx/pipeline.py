@@ -1,4 +1,4 @@
-"""PDF -> PPTX pipeline: ingest -> triage -> analyze -> build.
+"""PDF -> PPTX pipeline: ingest -> triage -> ocr -> analyze -> build.
 
 Each stage's IR is cached as ``work/<sha256>/ir_<stage>.json``. A cached stage is
 reused only when its cache key (the code versions of that stage and every stage
@@ -29,9 +29,20 @@ LOG = log.get(__name__)
 STAGE_VERSIONS = {
     "ingest": parse.PARSER_VERSION,
     "triage": "2.0",
-    "analyze": "structure-7.1",
+    "ocr": "8.1",  # + the OCR engine / models installed (stage_versions)
+    "analyze": "layout-8.1",
 }
 STAGES = tuple(STAGE_VERSIONS)
+
+
+def stage_versions() -> dict[str, str]:
+    """Stage versions plus, for ``ocr``, which engine and models this machine has:
+    installing the models invalidates the OCR stage and everything after it."""
+    from .ml import ocr
+
+    v = dict(STAGE_VERSIONS)
+    v["ocr"] = f"{v['ocr']}+{ocr.engine_id()}"
+    return v
 
 
 def sha256_file(path: Path) -> str:
@@ -44,8 +55,9 @@ def sha256_file(path: Path) -> str:
 
 def stage_key(stage: str) -> str:
     keys = []
+    versions = stage_versions()
     for s in STAGES:
-        keys.append(f"{s}={STAGE_VERSIONS[s]}")
+        keys.append(f"{s}={versions[s]}")
         if s == stage:
             break
     return ";".join(keys)
@@ -89,9 +101,11 @@ def run_stage(work_dir: Path, stage: str, fn: Callable[[], Document], use_cache:
     return doc, False
 
 
-def analyze(doc: Document, work_dir: Path | None = None) -> Document:
+def analyze(doc: Document, work_dir: Path | None = None, pdf: Path | None = None) -> Document:
     """M4: fonts, text blocks, lists, roles, reading order. M6: tables (before text, so
     cell glyphs are grouped per cell) and graphics (presets, connectors, groups, SVG).
+    M8: the layout model checks low-confidence roles (born-digital pages) and OCR
+    pages' roles against their stored regions.
     M7: document structure: links / notes / sections / producer, build-up sequences,
     theme, then masters / layouts / placeholders (each optional: a failure leaves the
     flat deck)."""
@@ -112,6 +126,14 @@ def analyze(doc: Document, work_dir: Path | None = None) -> Document:
                       type(exc).__name__, exc, exc_info=LOG.isEnabledFor(10))
     doc = analyze_text(doc, matches=matches, skip_glyphs=skip)
     wd = work_dir or Path(".")
+    if pdf is not None:
+        try:
+            from .ml import layout
+
+            layout.refine_roles(doc, pdf, wd)
+        except Exception as exc:  # the model is optional: rule roles stay
+            LOG.error("layout refinement failed (%s: %s)", type(exc).__name__, exc,
+                      exc_info=LOG.isEnabledFor(10))
     for page in doc.pages:
         try:
             stats.update(shapes.analyze_page(page, wd))
@@ -167,6 +189,7 @@ class ConvertResult:
     tune: dict[str, Any] | None = None
     slides: int = 0  # slides written (fewer than pages when build-ups are collapsed)
     structure_check: dict[str, Any] | None = None  # fidelity: structured vs flat render
+    ml: dict[str, Any] | None = None  # M8: OCR / layout / inpainting: what ran, providers
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -200,10 +223,52 @@ def analyzed(pdf: Path, cfg: Config, *, workers: int | None = None,
     doc, hit = run_stage(work_dir, "triage", lambda: triage.triage_document(doc), use_cache)
     if hit:
         cached.append("triage")
-    doc, hit = run_stage(work_dir, "analyze", lambda: analyze(doc, work_dir), use_cache)
+    doc, hit = run_stage(work_dir, "ocr", lambda: _ocr(doc, pdf, work_dir), use_cache)
+    if hit:
+        cached.append("ocr")
+    doc, hit = run_stage(work_dir, "analyze", lambda: analyze(doc, work_dir, pdf), use_cache)
     if hit:
         cached.append("analyze")
     return doc, work_dir, cached
+
+
+def _ocr(doc: Document, pdf: Path, work_dir: Path) -> Document:
+    from .ml import ocr
+
+    return ocr.run(doc, pdf, work_dir)
+
+
+def ml_summary(doc: Document) -> dict[str, Any] | None:
+    """What the models did for this document (compact; the full record is in the IR
+    metadata ``pdf2pptx:ocr`` / ``pdf2pptx:layout``)."""
+    def load(key: str) -> dict[str, Any]:
+        try:
+            return dict(json.loads(doc.metadata.get(key) or "{}"))
+        except ValueError:
+            return {}
+
+    ocr, lay = load("pdf2pptx:ocr"), load("pdf2pptx:layout")
+    if not ocr and not lay:
+        return None
+    pages = {}
+    for k, v in sorted(ocr.get("pages", {}).items(), key=lambda kv: int(kv[0])):
+        keep = ("kind", "engine", "skew", "words", "mean_conf", "lines_remapped",
+                "lines_replaced", "replaced", "kept_in_picture", "family", "error", "gaps")
+        pages[k] = {x: v[x] for x in keep if x in v}
+        if "inpaint" in v:
+            pages[k]["inpaint"] = {x: v["inpaint"][x] for x in ("uniform", "lama", "telea")}
+        pages[k]["seconds"] = v.get("seconds", {}).get("total")
+    return {
+        "ocr_pages": pages,
+        "ocr_flagged": ocr.get("flagged", 0),
+        "models": {n: {"provider": m.get("provider"), "seconds": m.get("seconds"),
+                       "calls": m.get("calls")}
+                   for n, m in sorted((ocr.get("models", {}) | lay.get("models", {})).items())},
+        "layout": {k: lay.get(k) for k in ("pages_checked", "model_runs", "blocks_low",
+                                           "trigger_rate") if k in lay}
+        | {"disagreements": len(lay.get("disagreements", [])),
+           "adopted": sum(1 for d in lay.get("disagreements", []) if d.get("adopted"))},
+    }
 
 
 def write_options(cfg: Config) -> TextOptions:
@@ -284,6 +349,7 @@ def convert(pdf: Path, out: Path, cfg: Config, *, workers: int | None = None,
     res.errors = rep.errors
     xc = doc.metadata.get("pdf2pptx:crosscheck")
     res.crosscheck = json.loads(xc) if xc else None
+    res.ml = ml_summary(doc)
     LOG.info("%s: %d pages in %.2fs -> %s (triage %s, fallback %s)", pdf.name, res.pages,
              res.seconds, out, res.triage, res.fallback_pages or "none")
     return res

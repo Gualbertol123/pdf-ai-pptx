@@ -84,7 +84,7 @@ def test_cache_and_determinism(two_pages: Path, tmp_path: Path) -> None:
     a, b = tmp_path / "a.pptx", tmp_path / "b.pptx"
     pipeline.convert(two_pages, a, cfg, use_cache=False)
     res = pipeline.convert(two_pages, b, cfg)
-    assert res.cached_stages == ["ingest", "triage", "analyze"]
+    assert res.cached_stages == ["ingest", "triage", "ocr", "analyze"]
     assert hashlib.sha256(a.read_bytes()).digest() == hashlib.sha256(b.read_bytes()).digest()
 
 

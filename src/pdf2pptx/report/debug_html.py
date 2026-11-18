@@ -268,6 +268,49 @@ def structure_facts(doc: Document | None, cfg: Config) -> list[str]:
     notes = [p.index + 1 for p in doc.pages if p.notes_text]
     if notes:
         out.append(f"speaker notes from comments on pages {notes}")
+    out.extend(model_facts(meta("pdf2pptx:ocr") or {}, meta("pdf2pptx:layout") or {}))
+    return out
+
+
+def model_facts(ocr: dict[str, Any], lay: dict[str, Any]) -> list[str]:
+    """M8: what OCR / layout / inpainting did, model providers, layout disagreements."""
+    out = []
+    for k, p in sorted(ocr.get("pages", {}).items(), key=lambda kv: int(kv[0])):
+        page = int(k) + 1
+        if "error" in p:
+            out.append(f"OCR p. {page} ({p.get('kind')}): failed: {p['error']}")
+            continue
+        sec = (p.get("seconds") or {}).get("total")
+        if p.get("kind") == "scanned":
+            inp = p.get("inpaint") or {}
+            out.append(f"OCR p. {page} (scanned, {p.get('engine')}): {p.get('words')} words, "
+                       f"mean confidence {p.get('mean_conf')}, skew {p.get('skew')}°, font "
+                       f"{p.get('family')}, {p.get('bullets_by_shape', 0)} bullets by shape; "
+                       f"background: {inp.get('uniform', 0)} rule fills, {inp.get('lama', 0)} "
+                       f"LaMa, {inp.get('telea', 0)} Telea; {sec} s")
+        elif p.get("kind") == "outlined_text":
+            labels = "; ".join(f"'{lb.get('text')}' {lb.get('conf')} "
+                               f"{'replaced' if lb.get('replaced') else 'kept as paths'}"
+                               for lb in p.get("labels", []))
+            out.append(f"OCR p. {page} (outlined text): {labels}; {sec} s")
+        else:
+            out.append(f"OCR p. {page} (broken text layer): {p.get('lines_remapped')} lines "
+                       f"remapped, {p.get('lines_replaced')} replaced; {sec} s")
+        out.extend(f"gap p. {page}: {g}" for g in p.get("gaps", []))
+    if ocr.get("models"):
+        out.append("models: " + ", ".join(
+            f"{n} on {(m.get('provider') or '?').replace('ExecutionProvider', '')} "
+            f"({m.get('calls')} runs, {m.get('seconds')} s)"
+            for n, m in sorted(ocr["models"].items())))
+    if lay.get("pages_checked"):
+        out.append(f"layout model: checked {lay['pages_checked']} page(s) "
+                   f"({lay.get('model_runs', 0)} runs on born-digital pages, trigger rate "
+                   f"{lay.get('trigger_rate')}), {lay.get('blocks_low', 0)} low-confidence "
+                   "blocks")
+    for d in lay.get("disagreements", []):
+        out.append(f"layout disagreement p. {d['page'] + 1} {d['block']}: rule {d['rule']} "
+                   f"({d['rule_conf']}) vs model {d['model']} ({d['model_score']}) -> "
+                   f"{'adopted ' + d['model_role'] if d['adopted'] else 'logged, rule kept'}")
     return out
 
 
