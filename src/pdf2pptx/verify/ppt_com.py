@@ -425,6 +425,26 @@ class _Worker:
             self.beat()
         return out
 
+    def op_charts(self, handle: str) -> list[list[tuple[str, bool, int]]]:
+        """Per slide: (shape name, HasChart, Chart.ChartType) of every graphic frame
+        that holds a chart (M9 check: charts are native)."""
+        pres = self._get(handle)
+        out: list[list[tuple[str, bool, int]]] = []
+        for i in range(self.counts[handle]):
+            shapes = pres.Slides.Item(i + 1).Shapes
+            row = []
+            for k in range(1, int(shapes.Count) + 1):
+                shp = shapes.Item(k)
+                try:
+                    has = bool(shp.HasChart)
+                except Exception:  # not a graphic frame
+                    has = False
+                if has:
+                    row.append((str(shp.Name), True, int(shp.Chart.ChartType)))
+            out.append(row)
+            self.beat()
+        return out
+
     def op_export_pdf(self, handle: str, out: str) -> str:
         pres = self._get(handle)
         p = Path(out).resolve()
@@ -949,6 +969,11 @@ class PowerPointEngine:
 
     def export_pdf(self, pres: PresInfo | str, out: Path) -> Path:
         return Path(self._call("export_pdf", self._h(pres), str(out)))
+
+    def charts(self, pres: PresInfo | str) -> list[list[tuple[str, bool, int]]]:
+        """Per slide: (name, HasChart, xlChartType) of each native chart."""
+        out: list[list[tuple[str, bool, int]]] = self._call("charts", self._h(pres))
+        return out
 
     def set_geometry(self, pres: PresInfo | str, slide: int,
                      edits: Sequence[tuple[str, float, float, float]]) -> int:

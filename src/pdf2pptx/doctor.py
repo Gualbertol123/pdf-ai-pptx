@@ -73,8 +73,27 @@ def check_models(load: bool = True) -> dict[str, Any]:
 
         if not load:
             return {"models": {s["name"]: {"installed": s["status"] == "ok"}
-                               for s in models.status()}}
+                               for s in models.status(pack="lite")}}
         return probe.run()
+    except Exception as exc:
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+def check_llm(cfg: Config) -> dict[str, Any]:
+    """M9 max tier: llama.cpp version, installed candidates with their memory plan
+    (nothing is loaded), the configured stack."""
+    try:
+        from .llm import max_tier, setup
+        from .llm.server import plan_memory
+
+        out: dict[str, Any] = {"llama_cpp": (setup.llama_version() or {}).get("tag"),
+                               "candidates": {}, "stack": max_tier.resolve_stack(cfg).as_dict()}
+        for c in setup.candidates():
+            row: dict[str, Any] = {"kind": c["kind"], "installed": setup.installed(c)}
+            if row["installed"]:
+                row["memory"] = plan_memory(c["name"], int(c.get("ctx", 8192))).as_dict()
+            out["candidates"][c["name"]] = row
+        return out
     except Exception as exc:
         return {"error": f"{type(exc).__name__}: {exc}"}
 
@@ -91,6 +110,7 @@ def run(cfg: Config, load_models: bool = True) -> dict[str, Any]:
         "vulkan": check_vulkan(),
         "models_dir": {"path": str(cfg.models_dir), "exists": cfg.models_dir.is_dir()},
         "ml": check_models(load_models),
+        "llm": check_llm(cfg),
         "tier": cfg.resolved_tier(),
         "mode": cfg.mode,
     }
@@ -143,5 +163,23 @@ def format_report(r: dict[str, Any]) -> str:
                      " (fallback OCR engine)")
     if ml.get("device") and ml["device"] != "auto":
         lines.append(f"  ML device       {ml['device']} (PDF2PPTX_ML_DEVICE)")
+    llm = r.get("llm", {})
+    if "error" in llm:
+        lines.append(f"  LLM             unavailable: {llm['error']}")
+    else:
+        ver = llm.get('llama_cpp') or 'not installed (pdf2pptx setup llm)'
+        lines.append(f"  llama.cpp       {ver}")
+        for name, c in llm.get("candidates", {}).items():
+            if not c["installed"]:
+                lines.append(f"  - {name:20s} not installed")
+                continue
+            m = c["memory"]
+            fit = (f"fits ({m['need_gb']} of {m['budget_gb']} GB"
+                   + (f", --n-cpu-moe {m['n_cpu_moe']}" if m["n_cpu_moe"] else "") + ")"
+                   if m["fits"] else f"does NOT fit now: {m['suggestion']}")
+            lines.append(f"  - {name:20s} {c['kind']}, {fit}")
+        st = llm.get("stack", {})
+        lines.append(f"  LLM stack       judge {st.get('judge')}, chart {st.get('chart')}, "
+                     f"text {st.get('text')}")
     lines.append(f"  Tier / mode     {r['tier']} / {r['mode']}")
     return "\n".join(lines)

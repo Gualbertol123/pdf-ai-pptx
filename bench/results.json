@@ -1,0 +1,753 @@
+{
+ "meta": {
+  "date": "2026-11-18 15:51",
+  "seconds": 715,
+  "llama_cpp": "b12503",
+  "machine": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD, 30.7 GB RAM",
+  "items": [
+   "r01_report_two_column:p0",
+   "r02_report_tables_it:p0",
+   "r03_report_figure:p0",
+   "d17_footer_logo_number:p0",
+   "r01_report_two_column:p0",
+   "d04_three_columns:p0",
+   "d07_table_simple:t0",
+   "d08_table_merged:t0",
+   "r02_report_tables_it:t0",
+   "d10_arrows_chevrons:p0",
+   "d14_chart_bar:p0",
+   "d14_chart_bar:p1",
+   "d15_chart_line:p0",
+   "d16_chart_pie:p0",
+   "d27_italian_report_4x3:p1",
+   "r01_report_two_column",
+   "d27_italian_report_4x3"
+  ],
+  "reserve_gb": 8.0
+ },
+ "stack": {
+  "llm_judge": "Qwen3.5-9B",
+  "llm_chart": "Qwen3.5-9B",
+  "llm_doc": "PaddleOCR-VL-1.6",
+  "llm_text": "Qwen3.5-9B"
+ },
+ "results": [
+  {
+   "model": "granite-docling-258M",
+   "kind": "docvlm",
+   "tasks": {
+    "chart": 0.317,
+    "table": 1.0
+   },
+   "items": [
+    {
+     "item": "d07_table_simple:t0",
+     "kind": "table",
+     "score": 1.0,
+     "raw": "<otsl><loc_0><loc_0><loc_500><loc_500><fcel>Site<fcel>Q1<fcel>Q2<fcel>Q3<fcel>Q4<nl><fcel>North<fcel>2,219<fcel>1,028<fcel>1,736<fcel>2,617<nl><fcel>South<fcel>850<fcel>1,640<fcel>3,165<fcel>2,121<nl><fcel>East<fcel>3,500<fcel>802<fcel>3,938<fcel>1,659<nl><fcel>West<fcel>2,921<fcel>3,924<fcel>2,065<fcel>3,399<nl></otsl><|end_of_text|>",
+     "seconds": 9.03,
+     "prompt_tokens": 611
+    },
+    {
+     "item": "d08_table_merged:t0",
+     "kind": "table",
+     "score": 1.0,
+     "raw": "<otsl><loc_0><loc_0><loc_500><loc_500><fcel>Area<fcel>2025<ecel><fcel>2026<ecel><nl><ecel><fcel>Plan<fcel>Actual<fcel>Plan<fcel>Actual<nl><fcel>Programs<fcel>120<fcel>118<fcel>135<fcel>â€”<nl><fcel>Staff<fcel>80<fcel>84<fcel>88<fcel>â€”<nl><fcel>Operations<fcel>30<fcel>27<fcel>32<fcel>â€”<nl><fcel>Total<fcel>230<fcel>229<fcel>255<fcel>â€”<nl></otsl><|end_of_text|>",
+     "seconds": 9.09,
+     "prompt_tokens": 611
+    },
+    {
+     "item": "r02_report_tables_it:t0",
+     "kind": "table",
+     "score": 1.0,
+     "raw": "<otsl><loc_0><loc_0><loc_500><loc_500><ched>Sede<ched>2024<ched>2025<ched>2026<nl><fcel>Centro<fcel>120<fcel>145<fcel>171<nl><fcel>Nord<fcel>80<fcel>96<fcel>110<nl><fcel>Sud<fcel>64<fcel>70<fcel>88<nl><fcel>Totale<fcel>264<fcel>311<fcel>369<nl></otsl><|end_of_text|>",
+     "seconds": 12.75,
+     "prompt_tokens": 876
+    },
+    {
+     "item": "d14_chart_bar:p0",
+     "kind": "chart",
+     "score": 0.6666666666666666,
+     "detail": {
+      "type": 0.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 0.6666666666666666
+     },
+     "raw": "<chart><loc_0><loc_0><loc_500><loc_500><stacked_bar_chart><ecel><fcel>North<fcel>South<fcel>East<fcel>West<nl><fcel>2024<fcel>41<fcel>58<fcel>26<fcel>54<nl><fcel>2025<fcel>56<fcel>58<fcel>54<fcel>21<nl><fcel>2026<fcel>46<fcel>46<fcel>11<fcel>34<nl></chart><|end_of_text|>",
+     "seconds": 9.36,
+     "prompt_tokens": 610
+    },
+    {
+     "item": "d14_chart_bar:p1",
+     "kind": "chart",
+     "score": 0.16666666666666666,
+     "detail": {
+      "type": 0.0,
+      "categories": 0.0,
+      "values": 0.5,
+      "score": 0.16666666666666666
+     },
+     "raw": "<otsl><loc_0><loc_0><loc_500><loc_500><ched>Outreach<ched>Programs<nl><fcel>52<fcel>6<nl><fcel>Staff<fcel>31<nl><fcel>Operations<fcel>11<nl><fcel>6<fcel>11<nl></otsl><|end_of_text|>",
+     "seconds": 9.07,
+     "prompt_tokens": 610
+    },
+    {
+     "item": "d15_chart_line:p0",
+     "kind": "chart",
+     "score": 0.08333333333333333,
+     "detail": {
+      "type": 0.0,
+      "categories": 0.0,
+      "values": 0.25,
+      "score": 0.08333333333333333
+     },
+     "raw": "<otsl><loc_0><loc_0><loc_500><loc_500><ched>Jan<ched><ched><ched><ched><ched><ched><nl><fcel>Feb<fcel>111.86<fcel>-<fcel>-<fcel>-<fcel>77.86<fcel>78.86<nl><fcel>Mar<fcel>110.86<fcel>-<fcel>-<fcel>-<fcel>81.86<fcel>82.86<nl><fcel>Apr<fcel>117.86<fcel>-<fcel>-<fcel>-<fcel>88.86<fcel>89.86<nl><fcel>May<fcel>132.86<fcel>-<fcel>-<fcel>-<fcel>93.86<fcel>95.86<nl><fcel>Jun<fcel>131.86<fcel>-<fcel>-<fcel>",
+     "seconds": 10.15,
+     "prompt_tokens": 610
+    },
+    {
+     "item": "d16_chart_pie:p0",
+     "kind": "chart",
+     "score": 0.0,
+     "detail": {
+      "type": 0.0,
+      "categories": 0.0,
+      "values": 0.0,
+      "score": 0.0
+     },
+     "raw": "<chart><loc_0><loc_0><loc_500><loc_500><pie_chart><fcel>Individuals<fcel>Foundations<fcel>Government<fcel>Events<nl><fcel>42.0%<fcel>28.0%<fcel>20.0%<fcel>10.0%<nl></chart><|end_of_text|>",
+     "seconds": 13.56,
+     "prompt_tokens": 875
+    },
+    {
+     "item": "d27_italian_report_4x3:p1",
+     "kind": "chart",
+     "score": 0.6666666666666666,
+     "detail": {
+      "type": 0.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 0.6666666666666666
+     },
+     "raw": "<chart><loc_0><loc_0><loc_500><loc_500><unknown><fcel>Characteristic<fcel>2025<fcel>2026<nl><fcel>Visite<fcel>320.0<fcel>410.0<nl><fcel>Laboratori<fcel>140.0<fcel>190.0<nl><fcel>Eventi<fcel>45.0<fcel>50.0<nl></chart><|end_of_text|>",
+     "seconds": 13.25,
+     "prompt_tokens": 875
+    }
+   ],
+   "fits_default_reserve": true,
+   "need_gb": 1.33,
+   "available_gb_at_start": 18.84,
+   "memory": {
+    "model": "granite-docling-258M",
+    "available_gb": 18.84,
+    "budget_gb": 10.84,
+    "need_gb": 1.33,
+    "gpu_need_gb": 1.15,
+    "gpu_budget_gb": 13.75,
+    "n_cpu_moe": 0,
+    "experts_on_cpu_gb": 0.0,
+    "fits": true,
+    "suggestion": ""
+   },
+   "server": {
+    "load_s": 1.35,
+    "peak_ram_used_gb": 0.99,
+    "lowest_available_gb": 17.85,
+    "requests": 8,
+    "prompt_tok_s": 71.2,
+    "gen_tok_s": 122.9,
+    "n_cpu_moe": 0
+   },
+   "seconds": 87.7,
+   "s_per_image_request": 9.75
+  },
+  {
+   "model": "PaddleOCR-VL-1.6",
+   "kind": "docvlm",
+   "tasks": {
+    "chart": 0.542,
+    "table": 1.0
+   },
+   "items": [
+    {
+     "item": "d07_table_simple:t0",
+     "kind": "table",
+     "score": 1.0,
+     "raw": "<fcel>Site<fcel>Q1<fcel>Q2<fcel>Q3<fcel>Q4<nl><fcel>North<fcel>2,219<fcel>1,028<fcel>1,736<fcel>2,617<nl><fcel>South<fcel>850<fcel>1,640<fcel>3,165<fcel>2,121<nl><fcel>East<fcel>3,500<fcel>802<fcel>3,938<fcel>1,659<nl><fcel>West<fcel>2,921<fcel>3,924<fcel>2,065<fcel>3,399<nl>",
+     "seconds": 4.84,
+     "prompt_tokens": 256
+    },
+    {
+     "item": "d08_table_merged:t0",
+     "kind": "table",
+     "score": 1.0,
+     "raw": "<fcel>Area<fcel>2025<lcel><fcel>2026<lcel><nl><ucel><fcel>Plan<fcel>Actual<fcel>Plan<fcel>Actual<nl><fcel>Programs<fcel>120<fcel>118<fcel>135<fcel>—<nl><fcel>Staff<fcel>80<fcel>84<fcel>88<fcel>—<nl><fcel>Operations<fcel>30<fcel>27<fcel>32<fcel>—<nl><fcel>Total<fcel>230<fcel>229<fcel>255<fcel>—<nl>",
+     "seconds": 4.68,
+     "prompt_tokens": 283
+    },
+    {
+     "item": "r02_report_tables_it:t0",
+     "kind": "table",
+     "score": 1.0,
+     "raw": "<fcel>Sede<fcel>2024<fcel>2025<fcel>2026<nl><fcel>Centro<fcel>120<fcel>145<fcel>171<nl><fcel>Nord<fcel>80<fcel>96<fcel>110<nl><fcel>Sud<fcel>64<fcel>70<fcel>88<nl><fcel>Totale<fcel>264<fcel>311<fcel>369<nl>",
+     "seconds": 2.98,
+     "prompt_tokens": 163
+    },
+    {
+     "item": "d14_chart_bar:p0",
+     "kind": "chart",
+     "score": 0.6666666666666666,
+     "detail": {
+      "type": 0.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 0.6666666666666666
+     },
+     "raw": "  | 2024 | 2025 | 2026\nNorth | 41 | 56 | 46\nSouth | 58 | 58 | 46\nEast | 26 | 54 | 11\nWest | 54 | 21 | 34",
+     "seconds": 5.51,
+     "prompt_tokens": 364
+    },
+    {
+     "item": "d14_chart_bar:p1",
+     "kind": "chart",
+     "score": 0.6666666666666666,
+     "detail": {
+      "type": 0.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 0.6666666666666666
+     },
+     "raw": "Category | Value\nOutreach | 6\nOperations | 11\nStaff | 31\nPrograms | 52",
+     "seconds": 4.93,
+     "prompt_tokens": 364
+    },
+    {
+     "item": "d15_chart_line:p0",
+     "kind": "chart",
+     "score": 0.041666666666666664,
+     "detail": {
+      "type": 0.0,
+      "categories": 0.0,
+      "values": 0.125,
+      "score": 0.041666666666666664
+     },
+     "raw": "  | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug\nMembers | 111 | 113 | 109 | 117 | 130 | 130 | 142 | 144\nDonors | 77 | 78 | 81 | 88 | 94 | 98 | 102 | 111",
+     "seconds": 5.82,
+     "prompt_tokens": 364
+    },
+    {
+     "item": "d16_chart_pie:p0",
+     "kind": "chart",
+     "score": 0.6666666666666666,
+     "detail": {
+      "type": 0.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 0.6666666666666666
+     },
+     "raw": "Category | Value\nIndividuals | 42\nFoundations | 28\nGovernment | 20\nEvents | 10",
+     "seconds": 7.39,
+     "prompt_tokens": 526
+    },
+    {
+     "item": "d27_italian_report_4x3:p1",
+     "kind": "chart",
+     "score": 0.6666666666666666,
+     "detail": {
+      "type": 0.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 0.6666666666666666
+     },
+     "raw": "  | 2025 | 2026\nVisite | 320 | 410\nLaboratori | 140 | 190\nEventi | 45 | 50",
+     "seconds": 6.94,
+     "prompt_tokens": 472
+    }
+   ],
+   "fits_default_reserve": true,
+   "need_gb": 2.52,
+   "available_gb_at_start": 20.22,
+   "memory": {
+    "model": "PaddleOCR-VL-1.6",
+    "available_gb": 20.2,
+    "budget_gb": 12.2,
+    "need_gb": 2.52,
+    "gpu_need_gb": 1.7,
+    "gpu_budget_gb": 13.75,
+    "n_cpu_moe": 0,
+    "experts_on_cpu_gb": 0.0,
+    "fits": true,
+    "suggestion": ""
+   },
+   "server": {
+    "load_s": 1.64,
+    "peak_ram_used_gb": 2.25,
+    "system_available_drop_gb": 2.43,
+    "lowest_available_gb": 17.77,
+    "requests": 8,
+    "prompt_tok_s": 80.2,
+    "gen_tok_s": 70.1,
+    "n_cpu_moe": 0
+   },
+   "seconds": 44.9,
+   "s_per_image_request": 5.22
+  },
+  {
+   "model": "Qwen3.5-4B",
+   "kind": "vlm",
+   "tasks": {
+    "chart": 0.983,
+    "judgment": 0.954,
+    "table": 0.91,
+    "text": 1.0
+   },
+   "items": [
+    {
+     "item": "r01_report_two_column:p0",
+     "kind": "roles",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 13.49,
+     "prompt_tokens": 584
+    },
+    {
+     "item": "r02_report_tables_it:p0",
+     "kind": "roles",
+     "score": 0.875,
+     "valid_json": true,
+     "seconds": 23.79,
+     "prompt_tokens": 775
+    },
+    {
+     "item": "r03_report_figure:p0",
+     "kind": "roles",
+     "score": 0.8,
+     "valid_json": true,
+     "seconds": 17.57,
+     "prompt_tokens": 658
+    },
+    {
+     "item": "d17_footer_logo_number:p0",
+     "kind": "roles",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 10.18,
+     "prompt_tokens": 470
+    },
+    {
+     "item": "r01_report_two_column:p0",
+     "kind": "order",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 8.78,
+     "prompt_tokens": 560
+    },
+    {
+     "item": "d04_three_columns:p0",
+     "kind": "order",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 7.8,
+     "prompt_tokens": 508
+    },
+    {
+     "item": "d07_table_simple:t0",
+     "kind": "table",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 14.65,
+     "prompt_tokens": 447
+    },
+    {
+     "item": "d08_table_merged:t0",
+     "kind": "table",
+     "score": 0.730106100795756,
+     "valid_json": true,
+     "seconds": 13.82,
+     "prompt_tokens": 438
+    },
+    {
+     "item": "r02_report_tables_it:t0",
+     "kind": "table",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 10.26,
+     "prompt_tokens": 265
+    },
+    {
+     "item": "d10_arrows_chevrons:p0",
+     "kind": "region",
+     "score": 1.0,
+     "label": "process",
+     "valid_json": true,
+     "seconds": 8.93,
+     "prompt_tokens": 383
+    },
+    {
+     "item": "d14_chart_bar:p0",
+     "kind": "chart",
+     "score": 1.0,
+     "detail": {
+      "type": 1.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 1.0
+     },
+     "valid_json": true,
+     "seconds": 18.31,
+     "prompt_tokens": 449
+    },
+    {
+     "item": "d14_chart_bar:p1",
+     "kind": "chart",
+     "score": 1.0,
+     "detail": {
+      "type": 1.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 1.0
+     },
+     "valid_json": true,
+     "seconds": 10.77,
+     "prompt_tokens": 449
+    },
+    {
+     "item": "d15_chart_line:p0",
+     "kind": "chart",
+     "score": 0.9166666666666666,
+     "detail": {
+      "type": 1.0,
+      "categories": 1.0,
+      "values": 0.75,
+      "score": 0.9166666666666666
+     },
+     "valid_json": true,
+     "seconds": 17.47,
+     "prompt_tokens": 449
+    },
+    {
+     "item": "d16_chart_pie:p0",
+     "kind": "chart",
+     "score": 1.0,
+     "detail": {
+      "type": 1.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 1.0
+     },
+     "valid_json": true,
+     "seconds": 18.08,
+     "prompt_tokens": 569
+    },
+    {
+     "item": "d27_italian_report_4x3:p1",
+     "kind": "chart",
+     "score": 1.0,
+     "detail": {
+      "type": 1.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 1.0
+     },
+     "valid_json": true,
+     "seconds": 14.26,
+     "prompt_tokens": 521
+    },
+    {
+     "item": "r01_report_two_column",
+     "kind": "text",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 25.46,
+     "prompt_tokens": 519
+    },
+    {
+     "item": "d27_italian_report_4x3",
+     "kind": "text",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 11.33,
+     "prompt_tokens": 151
+    }
+   ],
+   "fits_default_reserve": true,
+   "need_gb": 4.95,
+   "available_gb_at_start": 19.83,
+   "memory": {
+    "model": "Qwen3.5-4B",
+    "available_gb": 19.85,
+    "budget_gb": 11.85,
+    "need_gb": 4.95,
+    "gpu_need_gb": 3.84,
+    "gpu_budget_gb": 13.75,
+    "n_cpu_moe": 0,
+    "experts_on_cpu_gb": 0.0,
+    "fits": true,
+    "suggestion": ""
+   },
+   "server": {
+    "load_s": 2.8,
+    "peak_ram_used_gb": 5.04,
+    "system_available_drop_gb": 5.34,
+    "lowest_available_gb": 14.5,
+    "requests": 17,
+    "prompt_tok_s": 90.4,
+    "gen_tok_s": 18.1,
+    "n_cpu_moe": 0
+   },
+   "seconds": 248.0,
+   "s_per_image_request": 13.82
+  },
+  {
+   "model": "Qwen3.5-9B",
+   "kind": "vlm",
+   "tasks": {
+    "chart": 1.0,
+    "judgment": 1.0,
+    "table": 0.91,
+    "text": 1.0
+   },
+   "items": [
+    {
+     "item": "r01_report_two_column:p0",
+     "kind": "roles",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 23.31,
+     "prompt_tokens": 584
+    },
+    {
+     "item": "r02_report_tables_it:p0",
+     "kind": "roles",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 41.87,
+     "prompt_tokens": 775
+    },
+    {
+     "item": "r03_report_figure:p0",
+     "kind": "roles",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 29.84,
+     "prompt_tokens": 658
+    },
+    {
+     "item": "d17_footer_logo_number:p0",
+     "kind": "roles",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 13.71,
+     "prompt_tokens": 470
+    },
+    {
+     "item": "r01_report_two_column:p0",
+     "kind": "order",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 14.92,
+     "prompt_tokens": 560
+    },
+    {
+     "item": "d04_three_columns:p0",
+     "kind": "order",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 13.04,
+     "prompt_tokens": 508
+    },
+    {
+     "item": "d07_table_simple:t0",
+     "kind": "table",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 24.72,
+     "prompt_tokens": 447
+    },
+    {
+     "item": "d08_table_merged:t0",
+     "kind": "table",
+     "score": 0.730106100795756,
+     "valid_json": true,
+     "seconds": 25.45,
+     "prompt_tokens": 438
+    },
+    {
+     "item": "r02_report_tables_it:t0",
+     "kind": "table",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 16.82,
+     "prompt_tokens": 265
+    },
+    {
+     "item": "d10_arrows_chevrons:p0",
+     "kind": "region",
+     "score": 1.0,
+     "label": "process",
+     "valid_json": true,
+     "seconds": 10.08,
+     "prompt_tokens": 383
+    },
+    {
+     "item": "d14_chart_bar:p0",
+     "kind": "chart",
+     "score": 1.0,
+     "detail": {
+      "type": 1.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 1.0
+     },
+     "valid_json": true,
+     "seconds": 27.87,
+     "prompt_tokens": 449
+    },
+    {
+     "item": "d14_chart_bar:p1",
+     "kind": "chart",
+     "score": 1.0,
+     "detail": {
+      "type": 1.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 1.0
+     },
+     "valid_json": true,
+     "seconds": 18.15,
+     "prompt_tokens": 449
+    },
+    {
+     "item": "d15_chart_line:p0",
+     "kind": "chart",
+     "score": 1.0,
+     "detail": {
+      "type": 1.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 1.0
+     },
+     "valid_json": true,
+     "seconds": 29.4,
+     "prompt_tokens": 449
+    },
+    {
+     "item": "d16_chart_pie:p0",
+     "kind": "chart",
+     "score": 1.0,
+     "detail": {
+      "type": 1.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 1.0
+     },
+     "valid_json": true,
+     "seconds": 25.31,
+     "prompt_tokens": 569
+    },
+    {
+     "item": "d27_italian_report_4x3:p1",
+     "kind": "chart",
+     "score": 1.0,
+     "detail": {
+      "type": 1.0,
+      "categories": 1.0,
+      "values": 1.0,
+      "score": 1.0
+     },
+     "valid_json": true,
+     "seconds": 24.23,
+     "prompt_tokens": 521
+    },
+    {
+     "item": "r01_report_two_column",
+     "kind": "text",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 43.58,
+     "prompt_tokens": 519
+    },
+    {
+     "item": "d27_italian_report_4x3",
+     "kind": "text",
+     "score": 1.0,
+     "valid_json": true,
+     "seconds": 27.98,
+     "prompt_tokens": 151
+    }
+   ],
+   "fits_default_reserve": true,
+   "need_gb": 7.67,
+   "available_gb_at_start": 20.17,
+   "memory": {
+    "model": "Qwen3.5-9B",
+    "available_gb": 20.18,
+    "budget_gb": 12.18,
+    "need_gb": 7.67,
+    "gpu_need_gb": 6.31,
+    "gpu_budget_gb": 13.75,
+    "n_cpu_moe": 0,
+    "experts_on_cpu_gb": 0.0,
+    "fits": true,
+    "suggestion": ""
+   },
+   "server": {
+    "load_s": 5.39,
+    "peak_ram_used_gb": 7.77,
+    "system_available_drop_gb": 9.85,
+    "lowest_available_gb": 10.33,
+    "requests": 17,
+    "prompt_tok_s": 56.0,
+    "gen_tok_s": 10.6,
+    "n_cpu_moe": 0
+   },
+   "seconds": 416.1,
+   "s_per_image_request": 24.23
+  },
+  {
+   "model": "Qwen3.6-35B-A3B",
+   "kind": "vlm",
+   "tasks": {},
+   "items": [],
+   "fits_default_reserve": false,
+   "need_gb": 14.06,
+   "available_gb_at_start": 18.46,
+   "error": "Qwen3.6-35B-A3B: needs 14.1 GB, budget 10.5 GB (available - 8 GB); 3.6 GB short of RAM (needs 14.1 GB + 8 GB reserve): close programs, or a smaller model / quant",
+   "memory": {
+    "model": "Qwen3.6-35B-A3B",
+    "available_gb": 18.5,
+    "budget_gb": 10.5,
+    "need_gb": 14.06,
+    "gpu_need_gb": 13.22,
+    "gpu_budget_gb": 13.75,
+    "n_cpu_moe": 0,
+    "experts_on_cpu_gb": 0.0,
+    "fits": false,
+    "suggestion": "3.6 GB short of RAM (needs 14.1 GB + 8 GB reserve): close programs, or a smaller model / quant"
+   }
+  },
+  {
+   "model": "gpt-oss-20b",
+   "kind": "text",
+   "tasks": {},
+   "items": [],
+   "fits_default_reserve": false,
+   "need_gb": 12.43,
+   "available_gb_at_start": 18.5,
+   "error": "gpt-oss-20b: needs 12.4 GB, budget 10.5 GB (available - 8 GB); 1.9 GB short of RAM (needs 12.4 GB + 8 GB reserve): close programs, or a smaller model / quant",
+   "memory": {
+    "model": "gpt-oss-20b",
+    "available_gb": 18.5,
+    "budget_gb": 10.5,
+    "need_gb": 12.43,
+    "gpu_need_gb": 12.43,
+    "gpu_budget_gb": 13.75,
+    "n_cpu_moe": 0,
+    "experts_on_cpu_gb": 0.0,
+    "fits": false,
+    "suggestion": "1.9 GB short of RAM (needs 12.4 GB + 8 GB reserve): close programs, or a smaller model / quant"
+   }
+  }
+ ]
+}

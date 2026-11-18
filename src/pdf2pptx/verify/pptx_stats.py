@@ -28,6 +28,7 @@ class SlideStats:
     n_pictures: int = 0
     n_tables: int = 0
     n_charts: int = 0
+    chart_boxes: list[tuple[float, float, float, float]] = field(default_factory=list)  # pt
     parts: list[str] = field(default_factory=list)
 
 
@@ -157,14 +158,60 @@ def _frame_text(tf: Any, shape: Any = None) -> str:
     return "\n".join(lines)
 
 
+def _fmt_num(v: float, fmt: str) -> str:
+    pct = fmt.endswith("%")
+    if pct:
+        v *= 100
+    dec = len(fmt.split(".")[1].rstrip("%")) if "." in fmt else 0
+    txt = f"{v:,.{dec}f}" if "#,##" in fmt else f"{v:.{dec}f}"
+    if dec == 0 and fmt in ("General", ""):
+        txt = f"{v:g}"
+    return txt + ("%" if pct else "")
+
+
+def _axis_labels(chart: Any) -> list[str]:
+    """Tick labels of a value axis with explicit bounds and major unit (as our charts
+    are written); empty when PowerPoint picks the scale itself."""
+    try:
+        va = chart.value_axis
+    except (ValueError, AttributeError):
+        return []
+    lo, hi, step = va.minimum_scale, va.maximum_scale, va.major_unit
+    if lo is None or hi is None or not step or (hi - lo) / step > 100:
+        return []
+    fmt = ("General" if va.tick_labels.number_format_is_linked
+           else va.tick_labels.number_format)
+    n = round((hi - lo) / step)
+    return [_fmt_num(lo + k * step, fmt) for k in range(n + 1)]
+
+
 def _chart_text(chart: Any) -> str:
+    """The text a chart renders: title, value-axis tick labels, categories, data labels
+    and legend entries, in roughly the order a PDF of the chart reads."""
     parts = []
     if chart.has_title and chart.chart_title.has_text_frame:
         parts.append(_frame_text(chart.chart_title.text_frame))
     plot = chart.plots[0]
-    parts.extend(str(c) for c in plot.categories)
+    cats = [str(c) for c in plot.categories]
+    labels: list[list[str]] = []
+    if plot.has_data_labels:
+        for ser in plot.series:
+            labels.append([_fmt_num(float(v), "General") for v in ser.values if v is not None])
+    ticks = _axis_labels(chart)
+    tag = chart._chartSpace.xpath(".//c:plotArea/*[substring(local-name(), " +
+                                  "string-length(local-name()) - 4) = 'Chart']")
+    kind = tag[0].tag.split("}")[-1] if tag else ""
+    pie = kind in ("pieChart", "doughnutChart", "pie3DChart")
+    # PowerPoint's own PDF export reads a chart as: data labels (series by series),
+    # value-axis ticks ascending, categories, legend
+    for lab in labels:
+        parts.extend(lab)
+    if not pie:
+        parts.extend(ticks)
+        parts.extend(cats)
     if chart.has_legend:
-        parts.extend(s.name for s in plot.series)
+        vary = plot.vary_by_categories and len(plot.series) == 1
+        parts.extend(cats if (pie or vary) else [s.name for s in plot.series])
     return "\n".join(p for p in parts if p)
 
 
@@ -189,6 +236,9 @@ def _walk(shapes: Any, st: SlideStats, inherited: bool = False) -> None:
             continue
         if getattr(shape, "has_chart", False) and shape.has_chart:
             st.n_charts += 1
+            st.chart_boxes.append((emu_to_pt(shape.left), emu_to_pt(shape.top),
+                                   emu_to_pt(shape.left + shape.width),
+                                   emu_to_pt(shape.top + shape.height)))
             txt = _chart_text(shape.chart)
             if txt:
                 st.parts.append(txt)

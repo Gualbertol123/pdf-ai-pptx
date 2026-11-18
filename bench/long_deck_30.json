@@ -1,0 +1,82 @@
+{
+ "pdf": "deck30.pdf",
+ "pages": 30,
+ "seconds": 670.2,
+ "seconds_per_page": 22.34,
+ "tier": "max",
+ "llm_seconds": 590.69,
+ "models": [
+  {
+   "model": "Qwen3.5-9B",
+   "jobs": 49,
+   "cached": 0,
+   "failed": 0,
+   "seconds": 551.05,
+   "server": {
+    "load_s": 5.42,
+    "peak_ram_used_gb": 7.75,
+    "system_available_drop_gb": 7.22,
+    "lowest_available_gb": 10.62,
+    "requests": 49,
+    "prompt_tok_s": 58.5,
+    "gen_tok_s": 11.1,
+    "n_cpu_moe": 0,
+    "mmproj_cpu_fallback": false
+   },
+   "memory": {
+    "model": "Qwen3.5-9B",
+    "available_gb": 17.84,
+    "budget_gb": 9.84,
+    "need_gb": 7.77,
+    "gpu_need_gb": 6.31,
+    "gpu_budget_gb": 13.75,
+    "n_cpu_moe": 0,
+    "experts_on_cpu_gb": 0.0,
+    "fits": true,
+    "suggestion": ""
+   },
+   "error": null
+  }
+ ],
+ "applied": {
+  "region": 11,
+  "chart_check": 3
+ },
+ "keep_best": {
+  "pages": [
+   12,
+   13,
+   14,
+   17,
+   18,
+   19,
+   26,
+   27
+  ],
+  "before": {
+   "12": 0.9988,
+   "13": 0.9995,
+   "14": 0.9986,
+   "17": 0.9924,
+   "18": 0.9974,
+   "19": 0.9925,
+   "26": 0.9358,
+   "27": 0.963
+  },
+  "after": {
+   "12": 0.9988,
+   "13": 0.9995,
+   "14": 0.9986,
+   "17": 0.9924,
+   "18": 0.9974,
+   "19": 0.9925,
+   "26": 0.9358,
+   "27": 0.963
+  },
+  "reverted": []
+ },
+ "ram_available_before_gb": 18.23,
+ "ram_lowest_available_gb": 10.62,
+ "peak_ram_used_gb": 7.61,
+ "total_ram_gb": 30.7
+}

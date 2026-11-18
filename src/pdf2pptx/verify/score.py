@@ -154,9 +154,13 @@ def score_pair(
                 if abs(info.width_pt - ref.width) > 0.05 or abs(info.height_pt - ref.height) > 0.05:
                     pl = metrics.map_lines(pl, *diff.page_rect_on_slide(
                         ref.width, ref.height, info.width_pt, info.height_pt))
-                row["word_recall"] = metrics.word_recall(ref.lines, pl)
-                row["pos_err_pt"] = metrics.pos_err_pt(ref.lines, pl)
-                row["linebreak_match"] = metrics.linebreak_match(ref.lines, pl)
+                # M9: words a native chart draws have no COM word boxes; they count in
+                # text_sim / real_text_ratio but not in the text-box layout metrics
+                lines = (metrics.drop_inside(ref.lines, st.chart_boxes) if st.chart_boxes
+                         else ref.lines)
+                row["word_recall"] = metrics.word_recall(lines, pl)
+                row["pos_err_pt"] = metrics.pos_err_pt(lines, pl)
+                row["linebreak_match"] = metrics.linebreak_match(lines, pl)
                 row["regions"] = [[_r(v) for v in rr] for rr in d.region_scores]
                 row["mismatches"] = [m.to_dict() for m in d.mismatches[:10]]
                 if heatmap_dir is not None:

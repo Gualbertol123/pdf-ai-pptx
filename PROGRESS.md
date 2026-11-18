@@ -10,7 +10,7 @@
 | 6 | Graphics and tables | **done** | 2026-11-17 |
 | 7 | Document structure | **done** | 2026-11-17 |
 | 8 | Hard pages (OCR, layout model, background cleanup) | **done** | 2026-11-18 |
-| 9 | Local model service, benchmark, judgment, charts | not started | |
+| 9 | Local model service, benchmark, judgment, charts | **done** | 2026-11-18 |
 | 10 | Document → deck, UI, packaging | not started | |
 
 ---
@@ -1632,3 +1632,210 @@ Milestone 9: local model service, benchmark, judgment pass, charts. Starting poi
 - Chart regions (layout label `chart`) are kept as pictures on scans and found on
   born-digital pages (d14-d16, r03): candidates for chart-data extraction.
 - `runtime.session` + `PREFER_CPU` is the place for per-model provider decisions.
+
+## Milestone 9: local model service, benchmark, judgment pass, charts (2026-11-18)
+
+### What exists
+
+- **`pdf2pptx setup llm`** (`llm/setup.py`, `llm/manifest.json`)
+  - llama.cpp: the newest GitHub release with a `win-vulkan-x64` zip (`--llama-tag`
+    pins one), checked against GitHub's sha256, unpacked into `tools/llama.cpp`. Installed:
+    **b12503** (2026-11-18), recorded in `tools/llama.cpp/VERSION.json` and
+    `<models>/manifest.json`.
+  - GGUF candidates pinned like the M8 models (HF commit + sha256), installed by the
+    `ml/models.py` code (pack `llm`). It lists the files with their size and asks before
+    downloading (`--yes` skips). `--remove-except` deletes the candidates the bench did
+    not pick. All Apache-2.0 (llama.cpp MIT).
+  - **Newer equivalents replace PLAN.md's names**:
+    - PaddleOCR-VL-1.6 for PaddleOCR-VL-0.9B.
+    - Qwen3.5-9B / -4B for Qwen3-VL-8B.
+    - **Qwen3.6-35B-A3B** (natively multimodal MoE) for both Qwen3-VL-30B-A3B and
+      Qwen3-30B-A3B.
+    - granite-docling-258M and gpt-oss-20b as named.
+    - Not taken: the dense 27B models (too slow at ~65 GB/s) and the 177B Qwen3.8-Flash.
+  - After the bench the user kept Qwen3.5-9B, Qwen3.5-4B (low-RAM fallback) and
+    PaddleOCR-VL-1.6. The 35B, gpt-oss and granite-docling were deleted (~25 GB).
+- **`llm/server.py`**: one llama-server at a time on 127.0.0.1.
+  - Flags: `-ngl 99`, `--n-cpu-moe`, `-fa on`, q8_0 KV, context size, `--temp 0`,
+    `--seed`, `--cache-ram 0`.
+  - Requests: chat completions with images as data URLs, output forced by a JSON schema
+    (`response_format`), thinking off.
+  - **Memory guard**:
+    - RAM need = model + projector + KV + compute buffers, or the measured peak when
+      there is one (`<models>/llm/measured_peak.json`).
+    - Refused above available RAM - 8 GB (`PDF2PPTX_LLM_RESERVE_GB` overrides), with how
+      much is missing.
+    - `--n-cpu-moe` is the smallest value whose GPU part fits the Vulkan device's free
+      memory (from `llama-server --list-devices`).
+    - A sampler records llama-server's own peak memory (max of committed and resident)
+      and the drop in available RAM.
+- **`llm/scheduler.py`**: cache + scheduler.
+  - Every call is cached in `work/llm_cache` by (candidate + weights sha256, prompt
+    hash, image hashes, schema, max tokens).
+  - Jobs are queued per model and all jobs of a model run across the whole document or
+    corpus before a swap. Servers stay resident only above 48 GB of RAM.
+- **`llm/schemas.py` + `llm/judge.py`**: schema-constrained prompts and validators for:
+  - region classification (timeline / process / matrix / org chart / table / chart /
+    diagram / text / photo / logo / decorative);
+  - reading order (page image with numbered boxes);
+  - table structure;
+  - block roles;
+  - chart data.
+  - Targets: blocks below 0.65 role confidence or where the M8 layout model disagreed;
+    pages with body text in columns; tables below 0.8; groups of 3+ shapes; every
+    geometry chart; pictures of 80 pt or more (`--judge all` takes everything).
+  - Inputs: crops capped at 768 px plus the IR text.
+  - Adoption: answers are validated; changes carry `source="model:<name>"` and the
+    model's confidence and are adopted at 0.75 or above. Invalid output keeps the rule
+    result.
+- **`llm/max_tier.py`**: keep-best + memory-aware stack.
+  - The Lite and judged IR are written as flat decks and scored in PowerPoint. A page
+    whose composite falls goes back to Lite. Without PowerPoint the judgment is dropped.
+  - The configured stack is used if it fits the free RAM now, else the next installed
+    model that does (logged).
+- **Charts.**
+  - `analyze/charts.py` (rules, all tiers) turns vector chart drawings into `Chart`
+    elements:
+    - value axis = a linear fit of numeric labels snapped to gridlines / ticks;
+    - bars standing on the base line (clustered / stacked / varied colours), lines with
+      marker styles, pie slices from the fitted `pie` presets;
+    - categories by plot slot, legend entries word by word from the glyphs, data labels
+      (exact values where they agree with the geometry), plot / legend boxes, fonts,
+      gap width.
+  - The replaced elements are kept in `Chart.fallback`. A text block that is only partly
+    chart text cancels the chart.
+  - `build/charts.py` writes a native chart (embedded workbook) with manual plot / legend
+    layout, axis bounds and colours. Embedded workbooks are re-zipped with fixed
+    timestamps (deterministic bytes).
+  - `verify/chart_check.py` renders each chart in PowerPoint and checks `HasChart`. Below
+    0.85 frame SSIM the original shapes return (`charts.restore`).
+  - `llm/charts_vlm.py` (Max):
+    - checks each geometry chart against the model's reading;
+    - builds native charts from chart pictures, with orientation, bar lengths, plot box
+      and gap width measured in the pixels and colours sampled;
+    - placeholder categories or invisible labels -> tick labels hidden.
+- **Scoring**: a chart's text is read in PowerPoint's PDF order (data labels, ticks
+  ascending, categories, legend) and counts in text_sim / real_text. Words inside a
+  native chart are left out of the COM word metrics (they have no word boxes).
+- **Tier wiring**:
+  - `--tier lite|max|auto`; auto = max when llama.cpp + a vision model are installed
+    and RAM is 24 GB or more. `--judge low|all|off`.
+  - Corpus Max runs every file through one scheduler after the Lite workers.
+  - `doctor` lists llama.cpp, each candidate's memory plan and the stack.
+- **`pdf2pptx bench`** (`llm/bench.py`): writes `bench/results.md` + `results.json`
+  (saved after every model) and the stack to `pdf2pptx.toml`; `--long-deck N` converts
+  an N-page corpus deck and reports time and peak RAM.
+  - Items (scored against the truth): 10 judgment items (roles on 4 pages, reading order
+    on 2, 3 tables, 1 region), 5 chart regions, 2 grounded text outlines.
+  - Document models get their native prompts; their OTSL / markdown / HTML output is
+    parsed.
+
+### Benchmark (`bench/results.md`, 2026-11-18, 8 GB reserve, measured)
+
+| rank | model | load s | s / image req | prompt tok/s | gen tok/s | peak RAM GB | judgment | table | chart | text | overall |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Qwen3.5-9B (Q4_K_M) | 5.4 | 24.2 | 56.0 | 10.6 | 7.77 | 1.00 | 0.91 | 1.00 | 1.00 | **0.98** |
+| 2 | Qwen3.5-4B (Q4_K_M) | 2.8 | 13.8 | 90.4 | 18.1 | 5.04 | 0.95 | 0.91 | 0.98 | 1.00 | 0.96 |
+| 3 | PaddleOCR-VL-1.6 | 1.6 | 5.2 | 80.2 | 70.1 | 2.25 | - | **1.00** | 0.54 (no type) | - | 0.77 |
+| 4 | granite-docling-258M | 1.4 | 9.8 | 71.2 | 122.9 | 0.99 | - | 1.00 | 0.32 | - | 0.66 |
+| - | Qwen3.6-35B-A3B (UD-IQ3_XXS) | not run: needs 14.1 GB, 3.6 GB short of the 8 GB reserve | | | | | | | | | |
+| - | gpt-oss-20b (MXFP4) | not run: needs 12.4 GB, 1.9 GB short | | | | | | | | | |
+
+- An earlier single run of the 35B (with `--n-cpu-moe 18`) scored judgment 1.00,
+  table 1.00, chart 0.80, text 1.00.
+  - It left only 2.35 GB of RAM free: the CPU-side experts become resident.
+  - A later full bench at a 4 GB reserve was stopped by Claude Code for low memory.
+  - It is not usable here with ~17-19 GB free: a 64 GB upgrade would make it the judge.
+- **Chosen stack** (`pdf2pptx.toml`):
+  - judge / chart / text = **Qwen3.5-9B**. The 4B's chart score is within 0.02; the
+    judge model is preferred so a conversion needs no model swap.
+  - document model = **PaddleOCR-VL-1.6** (tables 1.00 in 5 s). Recorded, not yet wired
+    into conversion.
+  - The 4B is the automatic fallback when the 9B does not fit.
+
+### Measured facts that later milestones rely on
+
+- **Vision encoder on Vulkan.** It crashes llama-server (b12503, Radeon 780M) on
+  page-sized images:
+  - Qwen3.5-9B at 594 x 768 px, Qwen3.5-4B above ~800 px wide.
+  - On the CPU (`--no-mmproj-offload`, now the default) it costs ~0.5 s more per image.
+  - A crash restarts the server once with the CPU encoder.
+- **granite-docling.**
+  - With a q8_0 KV cache it crashes at start (flash attention unsupported for its K/V
+    rows): f16 KV.
+  - Its OTSL tags are special tokens: `--special`.
+- **Memory.**
+  - The free-RAM drop counts every program. The server's own peak (committed or
+    resident) matches the file-based estimate once `--cache-ram 0` disables llama-server's
+    8 GB host prompt cache: 9B 7.7 GB, 4B 5.0 GB, PaddleOCR-VL 2.3 GB.
+  - With the prompt cache on, the 9B grew to 10.4 GB over a bench run.
+  - Memory-mapped MoE experts on the CPU are paged in and count fully: `--n-cpu-moe`
+    saves GPU memory, not RAM.
+- **Qwen answers.**
+  - Small Qwens call vertical bars "bar" unless the prompt says column = vertical.
+  - They write merged-header tables with more rows than they state (the cells are now
+    trusted).
+  - Qwen3.5-4B writes a pie as one series per slice (folded).
+
+### Checks
+
+| Check | Target | Result |
+|---|---|---|
+| `pdf2pptx bench` | completes, ranked table | **done**: `bench/results.md`, 6 candidates (4 measured, 2 refused by the memory guard with the shortfall) |
+| Chart type (synthetic chart slides) | 100 % | **6 / 6** (d14 column + bar, d15 line with markers, d16 pie, d26 column, d27 column) |
+| Series values within 2 % | >= 90 % of points | **100 %** (every point equals the truth after snapping to 1/100 of the major unit) |
+| Native charts in PowerPoint | `HasChart` | **6 / 6** (`ppt_com.charts`: types 51 / 57 / 65 / 5). Render check: frame SSIM 0.963-0.991, 0 reverted. A forced failure (test) reverts to the shapes |
+| Judgment improves low-confidence slides | before / after, keep-best | **No improvement measured; no slide worse.** Max corpus run with Qwen3.5-9B: 93 jobs (14 role targets, 7 reading-order pages, 26 regions, 6 chart checks, 40 pictures). The model agreed with the rules on every role and order target: 0 changes. Regions -> notes only. Chart checks agree on 5 / 6, d16 invalid. r03: the raster chart was rebuilt as a native column chart (values = pixel bar lengths, ratios exact), composite 0.985 -> 0.966: **reverted by keep-best**. Before = after on the 13 pages with notes |
+| 30-page deck in Max | time, peak RAM | **670 s** cold (22.3 s / page; 591 s in 49 uncached model calls); llama-server peak **7.75 GB**, lowest available 10.6 GB (reserve held). Warm cache: 237 s |
+| Memory over-commit | none | The guard refuses the 35B / gpt-oss at the 8 GB reserve. Two background runs were stopped by Claude Code for low memory before the guard used measured peaks (misfit 6) |
+| `pytest -q`, `ruff`, `mypy` | clean | **209 passed** (7 min, PowerPoint + the live Qwen test), clean, clean. LLM tests skip without llama.cpp / models |
+
+### Scores (`work/scores/m8_*` -> `m9_*`, Lite, median (mean) over 62 slides)
+
+| mode | ssim | text_sim | lb_match | native | pos_err | composite |
+|---|---|---|---|---|---|---|
+| balanced | 0.9946 (0.9887 -> 0.9884) | 1.000 (0.9896) | 1.000 (0.9694 -> **0.9748**) | 1.000 (0.9979 -> **1.000**) | 0.446 -> 0.467 | 0.9976 (0.9889 -> **0.9894**) |
+| fidelity | same as balanced | | | | | 0.9976 (0.9889 -> 0.9894) |
+| editable | same | | | | 0.452 -> 0.467 | 0.9976 (0.9889 -> 0.9894) |
+| Max (balanced) | = Lite on every slide (keep-best) | | | | | 0.9976 (0.9894) |
+
+- **0 slides worse by more than 1 %** on ssim / text_sim / real_text / lb_match / native
+  / composite, in all three modes.
+- Changes are on the chart slides only:
+  - composite d15 0.9894 -> 0.9925, d16 0.9645 -> 0.9946;
+  - ssim d14 -0.005, d16 -0.007, d27 -0.003;
+  - region_ssim_min d14 0.976 -> 0.941, d16 0.979 -> 0.921 (legend entry spacing is
+    PowerPoint's own).
+- **pos_err median 0.446 -> 0.467**: on the six chart slides only the title is measured
+  now (chart words have no COM boxes). The titles' error is unchanged (~0.6 pt).
+- **Time**: balanced 2.09 s / page median (M8 1.25: the chart render check and a busier
+  machine), editable 1.0 s, Max corpus 21.6 s / page (LLM batch 668 s for 33 files, 41
+  calls cached).
+
+### Examples of remaining misfits
+
+1. **Judgment found nothing to fix on this corpus.** The low-confidence roles and
+   column orders were already right, so the pass adds cost (~20 s / page) without a
+   measured gain. Real documents (`corpus/real/`) are needed to show its value.
+2. **Raster charts lose to their picture.** The rebuilt r03 chart matches the bars
+   exactly, but the axis lines differ, so keep-best keeps the picture.
+3. **The best model does not fit.** Qwen3.6-35B-A3B needs ~22 GB free; with the user's
+   usual programs only the 9B / 4B run.
+4. **The d16 pie check** returned invalid JSON from the 9B once (one series per slice is
+   folded now; not re-run in the corpus).
+5. **PaddleOCR-VL** (best table reader) is benchmarked but not used by the converter yet.
+6. **Two background runs were stopped by Claude Code for low memory.** One was the full
+   bench at a 4 GB reserve (35B loading). The other was the first Max corpus run, when
+   the guard still used file sizes and llama-server's 8 GB prompt cache was on. Both
+   causes are fixed (measured peaks, `--cache-ram 0`).
+
+### Next
+
+Milestone 10: document -> deck, UI, packaging. Starting points:
+
+- `pdf2pptx.toml` `llm_text` = Qwen3.5-9B. The bench's grounded-outline task (`OUTLINE`
+  schema, every bullet cites block ids, numbers checked against the source) scored 1.00
+  for both Qwens and is a template for `llm/deck.py`.
+- `max_tier.resolve_stack(check_memory=True)` and the scheduler / cache are ready for
+  the text model.
+- Region labels (`region:<label>` notes on groups) can steer deck layouts.

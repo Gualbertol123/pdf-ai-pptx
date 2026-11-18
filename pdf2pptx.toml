@@ -1,0 +1,6 @@
+[pdf2pptx]
+# written by `pdf2pptx bench` (bench/results.md)
+llm_judge = "Qwen3.5-9B"
+llm_chart = "Qwen3.5-9B"
+llm_doc = "PaddleOCR-VL-1.6"
+llm_text = "Qwen3.5-9B"

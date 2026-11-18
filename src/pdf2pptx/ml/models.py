@@ -25,6 +25,8 @@ from ..config import default_models_dir
 LOG = log.get(__name__)
 
 SPEC_PATH = Path(__file__).with_name("manifest.json")
+# pack "llm" (M9): GGUF files for llama.cpp, same pinning and install code
+LLM_SPEC_PATH = Path(__file__).resolve().parents[1] / "llm" / "manifest.json"
 ASK_ABOVE_BYTES = 1 << 30  # ask before downloading more than 1 GB in total
 HF_URL = "https://huggingface.co/{repo}/resolve/{revision}/{path}"
 
@@ -51,8 +53,12 @@ class ModelFile:
 
 @cache
 def spec() -> dict[str, ModelFile]:
-    data = json.loads(SPEC_PATH.read_text(encoding="utf-8"))
-    return {m["name"]: ModelFile(**m) for m in data["models"]}
+    out: dict[str, ModelFile] = {}
+    for sp in (SPEC_PATH, LLM_SPEC_PATH):
+        if sp.is_file():
+            data = json.loads(sp.read_text(encoding="utf-8"))
+            out.update({m["name"]: ModelFile(**m) for m in data["models"]})
+    return out
 
 
 def models_dir() -> Path:
@@ -91,9 +97,12 @@ def sha256_of(p: Path) -> str:
     return h.hexdigest()
 
 
-def status(root: Path | None = None, verify: bool = False) -> list[dict[str, Any]]:
+def status(root: Path | None = None, verify: bool = False,
+           pack: str | None = None) -> list[dict[str, Any]]:
     out = []
     for m in spec().values():
+        if pack is not None and m.pack != pack:
+            continue
         p = (root or models_dir()) / m.file
         st = "missing"
         if p.is_file():
@@ -152,11 +161,13 @@ def _download(m: ModelFile, dest: Path, progress: Callable[[str], None],
 
 def install(pack: str = "lite", root: Path | None = None, *, assume_yes: bool = False,
             ask: Callable[[str], bool] | None = None,
-            progress: Callable[[str], None] = print) -> dict[str, Any]:
+            progress: Callable[[str], None] = print,
+            names: list[str] | None = None) -> dict[str, Any]:
     """Download the missing files of ``pack`` (verified), then write
     ``<root>/manifest.json``. Asks before more than 1 GB in total."""
     root = root or models_dir()
-    todo = [m for m in spec().values() if m.pack == pack and path(m.name, root) is None]
+    todo = [m for m in spec().values() if m.pack == pack and path(m.name, root) is None
+            and (names is None or m.name in names)]
     total = sum(m.size for m in todo)
     if total > ASK_ABOVE_BYTES and not assume_yes:
         question = f"Download {total / 2**30:.2f} GB of models into {root}?"

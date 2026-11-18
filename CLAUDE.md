@@ -26,7 +26,15 @@ the latest PROGRESS.md entry before starting a prompt.
 .venv\Scripts\pdf2pptx setup models --status --verify
 .venv\Scripts\pdf2pptx doctor [--no-models]  # provider per model (loading LaMa takes ~15 s)
 $env:PDF2PPTX_ML_DEVICE = "cpu"   # force the CPU (auto | cpu | dml); PDF2PPTX_MODELS_DIR overrides the folder
+.venv\Scripts\pdf2pptx setup llm [--only NAME ...] [--status]   # M9 llama.cpp (Vulkan) -> tools/llama.cpp + GGUF candidates
+.venv\Scripts\pdf2pptx setup llm --remove-except NAME ...      # delete the candidates the bench did not pick
+.venv\Scripts\pdf2pptx bench [--only NAME ...]   # LLM benchmark -> bench/results.md + stack in pdf2pptx.toml
+.venv\Scripts\pdf2pptx bench --long-deck 30 --tier max          # 30-page deck in Max: total time + peak RAM
+.venv\Scripts\pdf2pptx convert ... --tier lite|max --judge low|all|off   # tier auto = max when a VLM is installed
 ```
+
+Scoring runs must pass `--tier lite` (or `max`) explicitly: `auto` picks Max on this machine
+once a vision model is installed.
 
 Scores go to `work/scores/<label>/` (git-ignored). `work/scores/truth` and `blank` hold
 the M1 metric sanity runs; `work/scores/baseline.json` is the M2 BASELINE every later
@@ -118,3 +126,17 @@ milestone must beat. Re-run them if missing.
   costs ~0.01 SSIM on a dense page. `text_group` writes a bucket's median exact angle.
 - The scorer's reference text is the PDF text layer: recovering outlined text (d28)
   *lowers* text_sim against it although the slide now matches the truth deck.
+- Charts (M9): `analyze/charts.py` runs after shapes; a `Chart` keeps the elements it
+  replaced in `Chart.fallback` (`charts.restore` puts them back; the render check in
+  `verify/chart_check.py` does that below 0.85 frame SSIM). Chart text is scored in
+  PowerPoint's PDF reading order (data labels, ticks ascending, categories, legend);
+  chart words are left out of the COM word metrics. Embedded workbooks are
+  re-zipped with fixed timestamps (`writer.normalize_zip`).
+- llama.cpp b12503 on the 780M: the Vulkan vision encoder crashes llama-server on
+  page-sized images, so `--no-mmproj-offload` is the default (~0.5 s / image). q8_0 KV
+  crashes granite-docling at start (manifest `kv_type: f16`). Images are capped at
+  768 px. The memory guard reads the GGUF tensor table: CPU-side experts
+  (`--n-cpu-moe`) stay memory-mapped and do not count.
+- LLM calls are cached in `work/llm_cache` by (model + weights sha, prompt, images,
+  schema); delete it to re-measure. Max tier keeps a page's judgment only if its
+  composite is not lower than Lite's (`llm/max_tier.keep_best`).

@@ -287,6 +287,9 @@ class ChartSeries:
     values: list[float | None] = field(default_factory=list)
     color: Color | None = None
     x_values: list[float] | None = None
+    point_colors: list[Color | None] | None = None  # pie slices / varied bars
+    marker: str | None = None  # line charts: none | diamond | square | triangle | circle ...
+    line_width: float | None = None  # pt (line charts)
 
 
 @dataclass(kw_only=True)
@@ -301,6 +304,14 @@ class Chart(Element):
     legend_pos: str = "right"
     axes: dict[str, dict[str, float | str | None]] = field(default_factory=dict)
     fallback_ids: list[str] = field(default_factory=list)
+    # M9: the elements the chart replaces (shapes, labels, pictures). ``analyze/charts``
+    # removes them from the page; a chart that fails its render check puts them back.
+    fallback: list[AnyElement] = field(default_factory=list)
+    data_labels: bool = False
+    plot_bbox: BBox | None = None  # inner plot area (axes rectangle / pie bounds), pt
+    legend_bbox: BBox | None = None
+    style: dict[str, float | str | None] = field(default_factory=dict)  # gap_width, overlap,
+    # font_size, font_family, font_color, gridlines, first_slice_angle, ...
 
 
 @dataclass(kw_only=True)

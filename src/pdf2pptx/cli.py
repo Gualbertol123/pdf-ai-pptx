@@ -11,15 +11,13 @@ from typing import Any
 from . import __version__, log
 from .config import MODES, TIERS, Config, load_config
 
-NOT_YET = {
-    "setup llm": "Milestone 9 (llama.cpp)",
-}
+NOT_YET: dict[str, str] = {}
 
 
 def _config(args: argparse.Namespace) -> Config:
     overrides: dict[str, Any] = {}
     for key in ("mode", "tier", "workers", "work_dir", "out_dir", "render_dpi", "text_layout",
-                "tune", "tune_rounds", "builds", "structure"):
+                "tune", "tune_rounds", "builds", "structure", "judge"):
         v = getattr(args, key, None)
         if v is not None:
             overrides[key] = v
@@ -168,16 +166,21 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def cmd_setup(args: argparse.Namespace) -> int:
-    if args.what != "models":
-        what = f"setup {args.what or ''}".strip()
-        print(f"`pdf2pptx {what}` is not implemented yet: arrives in "
-              f"{NOT_YET.get(what, 'a later milestone')}.", file=sys.stderr)
-        return 3
+    if args.what not in ("models", "llm"):
+        print("setup: give `models` (ONNX, lite tier) or `llm` (llama.cpp + GGUF, max tier)",
+              file=sys.stderr)
+        return 2
     from .ml import models
 
+    pack = "llm" if args.what == "llm" else "lite"
     if args.status:
-        for s in models.status(verify=args.verify):
-            print(f"{s['status']:16s} {s['name']:20s} {s['size'] / 2**20:7.1f} MB  {s['file']}")
+        if pack == "llm":
+            from .llm import setup as llm_setup
+
+            v = llm_setup.llama_version()
+            print(f"llama.cpp: {v['tag'] if v else 'missing'}  ({llm_setup.llama_dir()})")
+        for s in models.status(verify=args.verify, pack=pack):
+            print(f"{s['status']:16s} {s['name']:24s} {s['size'] / 2**20:9.1f} MB  {s['file']}")
         return 0
 
     def ask(q: str) -> bool:
@@ -186,12 +189,46 @@ def cmd_setup(args: argparse.Namespace) -> int:
         except EOFError:
             return False
 
+    if pack == "llm":
+        from .llm import setup as llm_setup
+
+        if args.remove_except:
+            gone = llm_setup.remove(args.remove_except)
+            print(f"removed {len(gone)} file(s)")
+            return 0
+        res = llm_setup.install(args.only or None, assume_yes=args.yes, ask=ask,
+                                tag=args.llama_tag)
+        if res.get("reason"):
+            print(f"nothing downloaded: {res['reason']}", file=sys.stderr)
+            return 1
+        print(f"llama.cpp {res['llama_cpp']}; installed {len(res['installed'])} file(s); "
+              f"manifest: {models.models_dir() / 'manifest.json'}")
+        return 0
+
     res = models.install("lite", assume_yes=args.yes, ask=ask)
     if res.get("reason"):
         print(f"nothing downloaded: {res['reason']}", file=sys.stderr)
         return 1
     print(f"installed {len(res['installed'])} file(s); manifest: "
           f"{models.models_dir() / 'manifest.json'}")
+    return 0
+
+
+def cmd_bench(args: argparse.Namespace) -> int:
+    from .llm import bench
+
+    cfg = _config(args)
+    if args.long_deck:
+        r = bench.long_deck(cfg, args.long_deck)
+        print(json.dumps(r, indent=1))
+        out = bench.BENCH_DIR / f"long_deck_{args.long_deck}.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(r, indent=1) + "\n", encoding="utf-8", newline="\n")
+        print(f"written: {out}")
+        return 0
+    res = bench.run(cfg, only=args.only or None, write_config=not args.no_config)
+    print(Path(res["results"]).read_text(encoding="utf-8").split("## Per item")[0])
+    print(f"written: {res['results']}" + (f"; stack -> {res['config']}" if res["config"] else ""))
     return 0
 
 
@@ -210,7 +247,11 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("pdf", nargs="?")
     c.add_argument("-o", "--output")
     c.add_argument("--mode", choices=MODES)
-    c.add_argument("--tier", choices=TIERS)
+    c.add_argument("--tier", choices=TIERS,
+                   help="lite: rules + small models; max: + local LLM judgment and chart "
+                        "reading (auto: max when llama.cpp + a vision model are installed)")
+    c.add_argument("--judge", choices=("low", "all", "off"),
+                   help="max tier: judge low-confidence regions (default), all, or none")
     c.add_argument("--corpus", action="store_true")
     c.add_argument("--workers", type=int, help="process pool size (default 6)")
     c.add_argument("--only", nargs="*", help="corpus mode: names to convert")
@@ -282,13 +323,30 @@ def build_parser() -> argparse.ArgumentParser:
                    help="list the model files without loading them (loading LaMa takes ~10 s)")
     d.set_defaults(func=cmd_doctor)
 
+    b = sub.add_parser("bench", parents=[common],
+                       help="benchmark the installed LLM candidates (max tier) and pick a stack")
+    b.add_argument("--only", nargs="*", help="candidate names to (re)run; others are kept")
+    b.add_argument("--long-deck", dest="long_deck", type=int, nargs="?", const=30,
+                   help="instead: convert an N-page corpus deck (default 30) in the current "
+                        "tier and report total time and peak RAM")
+    b.add_argument("--tier", choices=TIERS)
+    b.add_argument("--judge", choices=("low", "all", "off"))
+    b.add_argument("--no-config", dest="no_config", action="store_true",
+                   help="do not write the recommended stack to pdf2pptx.toml")
+    b.set_defaults(func=cmd_bench)
+
     u = sub.add_parser("setup", parents=[common], help="download models / tools")
     u.add_argument("what", nargs="?", choices=("models", "llm"))
     u.add_argument("--lite", action="store_true",
-                   help="the ONNX models: OCR, layout, inpainting (the only pack so far)")
+                   help="the ONNX models: OCR, layout, inpainting")
     u.add_argument("--status", action="store_true", help="list the model files and exit")
     u.add_argument("--verify", action="store_true", help="with --status: check sha256")
     u.add_argument("--yes", action="store_true", help="do not ask before large downloads")
+    u.add_argument("--only", nargs="*", help="llm: candidate names to download (default all)")
+    u.add_argument("--llama-tag", dest="llama_tag",
+                   help="llm: llama.cpp release tag (default: the newest with a Vulkan zip)")
+    u.add_argument("--remove-except", dest="remove_except", nargs="+",
+                   help="llm: delete every candidate's GGUF files except these")
     u.set_defaults(func=cmd_setup)
     return p
 

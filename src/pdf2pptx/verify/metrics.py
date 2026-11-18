@@ -217,6 +217,17 @@ def map_lines(lines: Lines, scale: float, dx: float, dy: float) -> list[list[Wor
              for w in line] for line in lines]
 
 
+def drop_inside(lines: Lines, boxes: list[tuple[float, float, float, float]]) -> Lines:
+    """``lines`` without the words whose centre lies in one of ``boxes`` (empty lines
+    dropped)."""
+    def keep(w: Word) -> bool:
+        cx, cy = w.center
+        return not any(b[0] <= cx <= b[2] and b[1] <= cy <= b[3] for b in boxes)
+
+    out = [[w for w in line if keep(w)] for line in lines]
+    return [line for line in out if line]
+
+
 def word_recall(pdf_lines: Lines, pptx_lines: Lines) -> float | None:
     matches, n = match_words(pdf_lines, pptx_lines)
     return None if n == 0 else len(matches) / n

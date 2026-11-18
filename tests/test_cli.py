@@ -15,10 +15,21 @@ def test_parser_has_all_subcommands() -> None:
         assert args.command == cmd
 
 
-def test_stubs_exit_cleanly(capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.main(["setup", "llm"]) == 3
-    assert "Milestone 9" in capsys.readouterr().err
+def test_setup_llm_asks_before_downloading(capsys: pytest.CaptureFixture[str],
+                                           monkeypatch: pytest.MonkeyPatch) -> None:
+    """`setup llm` lists the files with their size and downloads nothing unless the
+    answer is yes (no network: the installer is replaced)."""
+    from pdf2pptx.llm import setup as llm_setup
 
+    calls: list[str] = []
+    monkeypatch.setattr(llm_setup, "install_llama", lambda *a, **k: calls.append("llama"))
+    monkeypatch.setattr("builtins.input", lambda q: "n")
+    rc = cli.main(["setup", "llm"])
+    if not llm_setup.plan():  # everything installed: nothing to ask
+        assert rc == 0
+        return
+    assert rc == 1 and not calls
+    assert "nothing downloaded" in capsys.readouterr().err
 
 def test_setup_models_status(capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["setup", "models", "--status"]) == 0

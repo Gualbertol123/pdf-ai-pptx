@@ -1,0 +1,224 @@
+{
+ "about": "Max-local tier (Milestone 9): llama.cpp (Vulkan) + GGUF candidates for `pdf2pptx bench`. Every file is pinned to a Hugging Face commit and a sha256; licenses checked (Apache-2.0, llama.cpp MIT). Newer equivalents replace PLAN.md's names where they exist: Qwen3.5-9B for Qwen3-VL-8B, Qwen3.6-35B-A3B (natively multimodal MoE) for both Qwen3-VL-30B-A3B and Qwen3-30B-A3B, PaddleOCR-VL-1.6 for PaddleOCR-VL-0.9B. Not taken: Qwen3.8-27B / Qwen3.6-27B (dense 27B: ~15 GB at Q4, too slow at ~65 GB/s), Qwen3.8-Flash-Next (177B).",
+ "llama_cpp": {
+  "repo": "ggml-org/llama.cpp",
+  "asset": "llama-{tag}-bin-win-vulkan-x64.zip",
+  "tested_tag": "b12503",
+  "tested_size": 38603975,
+  "tested_sha256": "6c83027548f989a4d5c9502b31b580dc5e1254998bd49c1d78e85f316900d118",
+  "license": "MIT",
+  "dir": "tools/llama.cpp"
+ },
+ "candidates": [
+  {
+   "name": "granite-docling-258M",
+   "model": "granite_docling",
+   "mmproj": "granite_docling_mmproj",
+   "kind": "docvlm",
+   "moe": false,
+   "ctx": 8192,
+   "kv_type": "f16",
+   "note": "q8_0 KV crashes llama-server at start (flash attention unsupported for its K/V rows, b12503); its OTSL / DocTags tags are special tokens: --special keeps them",
+   "server_args": [
+    "--special"
+   ]
+  },
+  {
+   "name": "PaddleOCR-VL-1.6",
+   "model": "paddleocr_vl",
+   "mmproj": "paddleocr_vl_mmproj",
+   "kind": "docvlm",
+   "moe": false,
+   "ctx": 8192
+  },
+  {
+   "name": "Qwen3.5-4B",
+   "model": "qwen35_4b",
+   "mmproj": "qwen35_4b_mmproj",
+   "kind": "vlm",
+   "moe": false,
+   "ctx": 16384
+  },
+  {
+   "name": "Qwen3.5-9B",
+   "model": "qwen35_9b",
+   "mmproj": "qwen35_9b_mmproj",
+   "kind": "vlm",
+   "moe": false,
+   "ctx": 16384
+  },
+  {
+   "name": "Qwen3.6-35B-A3B",
+   "model": "qwen36_35b_a3b",
+   "mmproj": "qwen36_35b_a3b_mmproj",
+   "kind": "vlm",
+   "moe": true,
+   "ctx": 16384
+  },
+  {
+   "name": "gpt-oss-20b",
+   "model": "gpt_oss_20b",
+   "mmproj": null,
+   "kind": "text",
+   "moe": true,
+   "ctx": 16384,
+   "reasoning": "low"
+  }
+ ],
+ "models": [
+  {
+   "name": "granite_docling",
+   "pack": "llm",
+   "role": "document vision model (DocTags)",
+   "version": "granite-docling-258M, BF16",
+   "license": "Apache-2.0",
+   "upstream": "https://huggingface.co/ibm-granite/granite-docling-258M",
+   "repo": "ibm-granite/granite-docling-258M-GGUF",
+   "revision": "e1e344cb19bae46a1d5edb4f04a27ebe0c268f72",
+   "path": "granite-docling-258M-BF16.gguf",
+   "file": "llm/granite-docling-258M/granite-docling-258M-BF16.gguf",
+   "size": 331641120,
+   "sha256": "fba182dea1c3adccbf2c5c22971fa7d4479587d83b20607405df1710a3683723"
+  },
+  {
+   "name": "granite_docling_mmproj",
+   "pack": "llm",
+   "role": "vision projector of granite_docling",
+   "version": "granite-docling-258M mmproj, F16",
+   "license": "Apache-2.0",
+   "upstream": "https://huggingface.co/ibm-granite/granite-docling-258M",
+   "repo": "ibm-granite/granite-docling-258M-GGUF",
+   "revision": "e1e344cb19bae46a1d5edb4f04a27ebe0c268f72",
+   "path": "mmproj-model-f16.gguf",
+   "file": "llm/granite-docling-258M/mmproj-model-f16.gguf",
+   "size": 190031712,
+   "sha256": "4b7b2c4ed3162bd9cb323668c188e2324838b8f8ca4f3f9767f16c4c600d43ad"
+  },
+  {
+   "name": "paddleocr_vl",
+   "pack": "llm",
+   "role": "document vision model (OCR, tables, charts)",
+   "version": "PaddleOCR-VL-1.6 (newer than the 0.9B of PLAN.md)",
+   "license": "Apache-2.0",
+   "upstream": "https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6",
+   "repo": "PaddlePaddle/PaddleOCR-VL-1.6-GGUF",
+   "revision": "511b09642bb324401f15f97cc23bc67e8f0a291d",
+   "path": "PaddleOCR-VL-1.6-GGUF.gguf",
+   "file": "llm/PaddleOCR-VL-1.6/PaddleOCR-VL-1.6.gguf",
+   "size": 935769056,
+   "sha256": "f3ae46ec885050acf4b3d31944431e1fd90d50664fb09126af4a3c050ba14ee8"
+  },
+  {
+   "name": "paddleocr_vl_mmproj",
+   "pack": "llm",
+   "role": "vision projector of paddleocr_vl",
+   "version": "PaddleOCR-VL-1.6 mmproj",
+   "license": "Apache-2.0",
+   "upstream": "https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6",
+   "repo": "PaddlePaddle/PaddleOCR-VL-1.6-GGUF",
+   "revision": "511b09642bb324401f15f97cc23bc67e8f0a291d",
+   "path": "PaddleOCR-VL-1.6-GGUF-mmproj.gguf",
+   "file": "llm/PaddleOCR-VL-1.6/PaddleOCR-VL-1.6-mmproj.gguf",
+   "size": 881770560,
+   "sha256": "204d757d7610d9b3faab10d506d69e5b244e32bf765e2bab2d0167e65e0a058a"
+  },
+  {
+   "name": "qwen35_4b",
+   "pack": "llm",
+   "role": "small judgment vision model",
+   "version": "Qwen3.5-4B, Q4_K_M",
+   "license": "Apache-2.0",
+   "upstream": "https://huggingface.co/Qwen/Qwen3.5-4B",
+   "repo": "ggml-org/Qwen3.5-4B-GGUF",
+   "revision": "8d43d974efc48399cb58957ad49c8b26bf5a109c",
+   "path": "Qwen3.5-4B-Q4_K_M.gguf",
+   "file": "llm/Qwen3.5-4B/Qwen3.5-4B-Q4_K_M.gguf",
+   "size": 3032091584,
+   "sha256": "217002fa8008ef4fc6d548353a3aebef055a96e6ff8e0e2c0953ef8254a89c14"
+  },
+  {
+   "name": "qwen35_4b_mmproj",
+   "pack": "llm",
+   "role": "vision projector of qwen35_4b",
+   "version": "Qwen3.5-4B mmproj, Q8_0",
+   "license": "Apache-2.0",
+   "upstream": "https://huggingface.co/Qwen/Qwen3.5-4B",
+   "repo": "ggml-org/Qwen3.5-4B-GGUF",
+   "revision": "8d43d974efc48399cb58957ad49c8b26bf5a109c",
+   "path": "mmproj-Qwen3.5-4B-Q8_0.gguf",
+   "file": "llm/Qwen3.5-4B/mmproj-Qwen3.5-4B-Q8_0.gguf",
+   "size": 366894560,
+   "sha256": "5a5ba634d46f9888599963bfc52194eadf099e1efdbee46d71957d911cf62654"
+  },
+  {
+   "name": "qwen35_9b",
+   "pack": "llm",
+   "role": "judgment vision model (newer equivalent of Qwen3-VL-8B)",
+   "version": "Qwen3.5-9B, Q4_K_M",
+   "license": "Apache-2.0",
+   "upstream": "https://huggingface.co/Qwen/Qwen3.5-9B",
+   "repo": "unsloth/Qwen3.5-9B-GGUF",
+   "revision": "3885219b6810b007914f3a7950a8d1b469d598a5",
+   "path": "Qwen3.5-9B-Q4_K_M.gguf",
+   "file": "llm/Qwen3.5-9B/Qwen3.5-9B-Q4_K_M.gguf",
+   "size": 5680522464,
+   "sha256": "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8"
+  },
+  {
+   "name": "qwen35_9b_mmproj",
+   "pack": "llm",
+   "role": "vision projector of qwen35_9b",
+   "version": "Qwen3.5-9B mmproj, F16",
+   "license": "Apache-2.0",
+   "upstream": "https://huggingface.co/Qwen/Qwen3.5-9B",
+   "repo": "unsloth/Qwen3.5-9B-GGUF",
+   "revision": "3885219b6810b007914f3a7950a8d1b469d598a5",
+   "path": "mmproj-F16.gguf",
+   "file": "llm/Qwen3.5-9B/mmproj-F16.gguf",
+   "size": 918166080,
+   "sha256": "f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f"
+  },
+  {
+   "name": "qwen36_35b_a3b",
+   "pack": "llm",
+   "role": "judgment vision + text model, MoE (newer equivalent of Qwen3-VL-30B-A3B and Qwen3-30B-A3B)",
+   "version": "Qwen3.6-35B-A3B, unsloth UD-IQ3_XXS",
+   "license": "Apache-2.0",
+   "upstream": "https://huggingface.co/Qwen/Qwen3.6-35B-A3B",
+   "repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
+   "revision": "a483e9e6cbd595906af30beda3187c2663a1118c",
+   "path": "Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+   "file": "llm/Qwen3.6-35B-A3B/Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf",
+   "size": 13211155424,
+   "sha256": "9c964e657212fea1f24905dd7b0a89b82fd807d19fab0b41da14251b07b88fbe"
+  },
+  {
+   "name": "qwen36_35b_a3b_mmproj",
+   "pack": "llm",
+   "role": "vision projector of qwen36_35b_a3b",
+   "version": "Qwen3.6-35B-A3B mmproj, F16",
+   "license": "Apache-2.0",
+   "upstream": "https://huggingface.co/Qwen/Qwen3.6-35B-A3B",
+   "repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
+   "revision": "a483e9e6cbd595906af30beda3187c2663a1118c",
+   "path": "mmproj-F16.gguf",
+   "file": "llm/Qwen3.6-35B-A3B/mmproj-F16.gguf",
+   "size": 899283680,
+   "sha256": "8971ee4f331ff0a4c609374f32984b3d4e6dc086c0aa35f1d637fad1829e887f"
+  },
+  {
+   "name": "gpt_oss_20b",
+   "pack": "llm",
+   "role": "text model, MoE",
+   "version": "gpt-oss-20b, MXFP4",
+   "license": "Apache-2.0",
+   "upstream": "https://huggingface.co/openai/gpt-oss-20b",
+   "repo": "ggml-org/gpt-oss-20b-GGUF",
+   "revision": "41e8a94d15d62070b36cf4553a0250717ecf46b8",
+   "path": "gpt-oss-20b-MXFP4.gguf",
+   "file": "llm/gpt-oss-20b/gpt-oss-20b-MXFP4.gguf",
+   "size": 12109566624,
+   "sha256": "27cd6c432c7672cb812a92f611cf3ba7bbc35928262bb1e1253ff4ee6ae35901"
+  }
+ ]
+}

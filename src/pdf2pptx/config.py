@@ -15,6 +15,7 @@ from typing import Any
 MODES = ("fidelity", "balanced", "editable", "deck")
 TIERS = ("auto", "lite", "max")
 TEXT_LAYOUTS = ("blocks", "lines")  # lines = the M2 baseline, one box per line
+JUDGE_SCOPES = ("low", "all", "off")  # max tier: judge low-confidence regions / all / none
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_FILENAME = "pdf2pptx.toml"
@@ -113,6 +114,13 @@ class Config:
     text_layout: str = "blocks"
     builds: bool | None = None  # None = mode default (off in fidelity)
     structure: bool = True  # masters, layouts, placeholders, theme references (M7)
+    # M9 max tier: judgment scope and the model stack (``pdf2pptx bench`` writes these
+    # into pdf2pptx.toml; None = the best installed candidate)
+    judge: str = "low"
+    llm_judge: str | None = None
+    llm_chart: str | None = None
+    llm_doc: str | None = None  # document model (tables / charts), benchmarked
+    llm_text: str | None = None
 
     def __post_init__(self) -> None:
         if self.mode not in MODES:
@@ -121,6 +129,8 @@ class Config:
             raise ValueError(f"tier must be one of {TIERS}, got {self.tier!r}")
         if self.workers < 1:
             raise ValueError("workers must be >= 1")
+        if self.judge not in JUDGE_SCOPES:
+            raise ValueError(f"judge must be one of {JUDGE_SCOPES}, got {self.judge!r}")
         if self.text_layout not in TEXT_LAYOUTS:
             raise ValueError(f"text_layout must be one of {TEXT_LAYOUTS}, "
                              f"got {self.text_layout!r}")
@@ -184,13 +194,19 @@ def load_config(
 
 
 def detect_tier(cfg: Config) -> str:
-    """Stub until M9: ``max`` needs llama.cpp + at least one GGUF model + >= 24 GB RAM."""
+    """``max`` needs llama.cpp, an installed vision model (``pdf2pptx setup llm``) and
+    at least 24 GB of RAM; otherwise ``lite``."""
     try:
         import psutil
 
         ram_gb = psutil.virtual_memory().total / 2**30
     except Exception:  # pragma: no cover - psutil is a dependency
         ram_gb = 0.0
-    llama = PROJECT_ROOT / "tools" / "llama.cpp" / "llama-server.exe"
-    has_gguf = cfg.models_dir.is_dir() and any(cfg.models_dir.rglob("*.gguf"))
-    return "max" if (llama.is_file() and has_gguf and ram_gb >= 24) else "lite"
+    if ram_gb < 24:
+        return "lite"
+    try:
+        from .llm.max_tier import available
+
+        return "lite" if available(cfg) else "max"
+    except Exception:
+        return "lite"

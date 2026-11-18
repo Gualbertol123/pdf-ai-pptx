@@ -21,6 +21,7 @@ import dataclasses
 import datetime
 import hashlib
 import io
+import re
 import zipfile
 from collections import Counter
 from contextvars import ContextVar
@@ -41,6 +42,7 @@ from ..analyze.builds import absorbed_pages, element_step, page_to_slide, paragr
 from ..ingest.render import ensure_render
 from ..ir import (
     Bullet,
+    Chart,
     Color,
     Document,
     Fill,
@@ -651,6 +653,13 @@ def _write_element(slide: Any, shapes: Any, e: Any, xf: _Xf,
         gf = _add_table(slide, e, xf, internal, opts, work_dir, pictures)
         sid = gf.shape_id
         rep.counts["tables"] += 1
+    elif isinstance(e, Chart):
+        from .charts import add_chart
+
+        gf = add_chart(shapes, e, xf.x(e.bbox[0]), xf.y(e.bbox[1]),
+                       xf.d(e.bbox[2] - e.bbox[0]), xf.d(e.bbox[3] - e.bbox[1]), xf.s)
+        sid = gf.shape_id
+        rep.counts["charts"] += 1
     else:
         rep.counts[f"skipped_{e.kind}"] += 1
     link = getattr(e, "hyperlink", None)
@@ -999,8 +1008,13 @@ class _Restart(Exception):
     """The structured write failed before any slide: write the flat deck instead."""
 
 
+_XLSX_TIME = re.compile(rb"(<dcterms:(?:created|modified)[^>]*>)[^<]*(</dcterms:)")
+
+
 def normalize_zip(data: bytes) -> bytes:
-    """Same entries, same order, fixed timestamps and attributes -> deterministic bytes."""
+    """Same entries, same order, fixed timestamps and attributes -> deterministic bytes.
+    Embedded chart workbooks (``.xlsx``, written with the current time) are normalised
+    the same way."""
     src = zipfile.ZipFile(io.BytesIO(data))
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dst:
@@ -1008,5 +1022,10 @@ def normalize_zip(data: bytes) -> bytes:
             zi = zipfile.ZipInfo(info.filename, date_time=FIXED_ZIP_TIME)
             zi.compress_type = zipfile.ZIP_DEFLATED
             zi.external_attr = 0o600 << 16
-            dst.writestr(zi, src.read(info.filename))
+            blob = src.read(info.filename)
+            if info.filename.endswith(".xlsx"):
+                blob = normalize_zip(blob)
+            elif info.filename == "docProps/core.xml" and b"dcterms:created" in blob:
+                blob = _XLSX_TIME.sub(rb"\g<1>2000-01-01T00:00:00Z\g<2>", blob)
+            dst.writestr(zi, blob)
     return out.getvalue()

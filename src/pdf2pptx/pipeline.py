@@ -30,7 +30,7 @@ STAGE_VERSIONS = {
     "ingest": parse.PARSER_VERSION,
     "triage": "2.0",
     "ocr": "8.1",  # + the OCR engine / models installed (stage_versions)
-    "analyze": "layout-8.1",
+    "analyze": "charts-9.0",
 }
 STAGES = tuple(STAGE_VERSIONS)
 
@@ -109,7 +109,7 @@ def analyze(doc: Document, work_dir: Path | None = None, pdf: Path | None = None
     M7: document structure: links / notes / sections / producer, build-up sequences,
     theme, then masters / layouts / placeholders (each optional: a failure leaves the
     flat deck)."""
-    from .analyze import shapes, tables
+    from .analyze import charts, shapes, tables
     from .analyze.text import analyze_text
     from .fonts.match import match_document
 
@@ -139,6 +139,11 @@ def analyze(doc: Document, work_dir: Path | None = None, pdf: Path | None = None
             stats.update(shapes.analyze_page(page, wd))
         except Exception as exc:  # graphics are optional: freeforms stay
             LOG.error("page %d: shape analysis failed (%s: %s)", page.index,
+                      type(exc).__name__, exc, exc_info=LOG.isEnabledFor(10))
+        try:  # M9: vector charts -> native charts (their parts kept as the fallback)
+            stats.update(charts.analyze_page(page))
+        except Exception as exc:  # charts are optional: the shapes stay
+            LOG.error("page %d: chart analysis failed (%s: %s)", page.index,
                       type(exc).__name__, exc, exc_info=LOG.isEnabledFor(10))
     doc.metadata["pdf2pptx:graphics"] = json.dumps(dict(sorted(stats.items())), sort_keys=True)
     doc.metadata["pdf2pptx:structure"] = json.dumps(analyze_structure(doc), sort_keys=True)
@@ -190,6 +195,8 @@ class ConvertResult:
     slides: int = 0  # slides written (fewer than pages when build-ups are collapsed)
     structure_check: dict[str, Any] | None = None  # fidelity: structured vs flat render
     ml: dict[str, Any] | None = None  # M8: OCR / layout / inpainting: what ran, providers
+    charts: dict[str, Any] | None = None  # M9: native charts and their render check
+    llm: dict[str, Any] | None = None  # M9: max tier: judgment / chart model calls
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -320,9 +327,35 @@ def _finalize(doc: Document, out: Path, work_dir: Path, pdf: Path, cfg: Config, 
     return rep, verdict
 
 
+def _check_charts(doc: Document, out: Path, work_dir: Path, pdf: Path, cfg: Config,
+                  rep: WriteReport) -> tuple[WriteReport, dict[str, Any] | None]:
+    """M9: render-check the native charts; rewrite the deck if one went back to shapes."""
+    from .verify import chart_check
+
+    if not chart_check.charts_of(doc):
+        return rep, None
+    res = chart_check.check(doc, out, work_dir, pdf, dpi=cfg.render_dpi,
+                            builds=write_options(cfg).builds)
+    if res["reverted"]:
+        rep, _ = _finalize(doc, out, work_dir, pdf, cfg, check=False)
+    return rep, res
+
+
+def _max(doc: Document, pdf: Path, work_dir: Path, cfg: Config) -> dict[str, Any]:
+    """M9 max tier on one document: judgment + chart reading + keep-best."""
+    from .llm import max_tier
+
+    try:
+        return max_tier.run_many([(doc, pdf, work_dir)], cfg)[0]
+    except Exception as exc:  # the model layer is optional: the Lite IR stays
+        LOG.error("%s: max tier failed (%s: %s); Lite result kept", pdf.name,
+                  type(exc).__name__, exc, exc_info=LOG.isEnabledFor(10))
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
 def convert(pdf: Path, out: Path, cfg: Config, *, workers: int | None = None,
             use_cache: bool = True, tune: bool | None = None,
-            check_structure: bool = True) -> ConvertResult:
+            check_structure: bool = True, max_tier: bool = True) -> ConvertResult:
     """Convert one PDF. Raises only if the whole document cannot be opened/written.
 
     ``tune``: run the fidelity tuner (M5) after writing; None = the mode's default.
@@ -332,10 +365,14 @@ def convert(pdf: Path, out: Path, cfg: Config, *, workers: int | None = None,
     pdf = Path(pdf)
     res = ConvertResult(pdf=str(pdf), output=str(out))
     doc, work_dir, res.cached_stages = analyzed(pdf, cfg, workers=workers, use_cache=use_cache)
+    if max_tier and cfg.resolved_tier() == "max" and cfg.judge != "off":
+        res.llm = _max(doc, pdf, work_dir, cfg)
 
     if (cfg.tune_enabled if tune is None else tune) and cfg.text_layout == "blocks":
         res.tune = _tune(doc, out, work_dir, pdf, cfg)
     rep, res.structure_check = _finalize(doc, out, work_dir, pdf, cfg, check=check_structure)
+    if check_structure:
+        rep, res.charts = _check_charts(doc, out, work_dir, pdf, cfg, rep)
     doc.stage = "build"
     _save_ir(work_dir, "build", doc)
 
@@ -362,7 +399,7 @@ def _convert_entry(pdf: Path, out: Path, cfg: Config, use_cache: bool) -> dict[s
     log.setup(False)
     try:
         return convert(pdf, out, cfg, workers=1, use_cache=use_cache, tune=False,
-                       check_structure=False).as_dict()
+                       check_structure=False, max_tier=False).as_dict()
     except Exception as exc:  # a whole-document failure is recorded, not raised
         LOG.error("%s: conversion failed: %s", pdf.name, exc)
         return {"pdf": str(pdf), "output": str(out), "error": f"{type(exc).__name__}: {exc}"}
@@ -396,9 +433,12 @@ def convert_corpus(cfg: Config, *, only: list[str] | None = None, use_cache: boo
             r["name"] = e["name"]
             r["expected_pages"] = e["pages"]
             results[e["name"]] = r
+    if cfg.resolved_tier() == "max" and cfg.judge != "off":
+        _max_corpus(results, cfg)
     if (cfg.tune_enabled and cfg.text_layout == "blocks") or cfg.mode == "fidelity":
         _tune_corpus(results, cfg, tune=cfg.tune_enabled and cfg.text_layout == "blocks")
     if check:
+        _chart_check_corpus(results, cfg)
         _com_check(results)
     for name, r in results.items():
         (out_dir / f"{name}.convert.json").write_text(json.dumps(r, indent=1, sort_keys=True),
@@ -421,6 +461,42 @@ def convert_corpus(cfg: Config, *, only: list[str] | None = None, use_cache: boo
     (out_dir / "_summary.json").write_text(json.dumps(summary, indent=1, sort_keys=True),
                                            encoding="utf-8", newline="\n")
     return summary
+
+
+def _max_corpus(results: dict[str, dict[str, Any]], cfg: Config) -> None:
+    """M9: judge every converted file with one scheduler (each model loads once for the
+    whole corpus), then rewrite the decks."""
+    from .llm import max_tier
+
+    items, names = [], []
+    for name in sorted(results):
+        r = results[name]
+        if "error" in r:
+            continue
+        pdf = Path(r["pdf"])
+        work_dir = cfg.work_dir / sha256_file(pdf)
+        doc = Document.from_json((work_dir / "ir_build.json").read_text(encoding="utf-8"))
+        items.append((doc, pdf, work_dir))
+        names.append(name)
+    t0 = time.perf_counter()
+    try:
+        reps = max_tier.run_many(items, cfg)
+    except Exception as exc:
+        LOG.error("max tier failed (%s: %s); Lite results kept", type(exc).__name__, exc)
+        for n in names:
+            results[n]["llm"] = {"error": f"{type(exc).__name__}: {exc}"}
+        return
+    per = (time.perf_counter() - t0) / max(len(items), 1)
+    for name, (doc, pdf, work_dir), rep in zip(names, items, reps, strict=True):
+        r = results[name]
+        r["llm"] = rep
+        if rep.get("applied"):
+            wr, _ = _finalize(doc, Path(r["output"]), work_dir, pdf, cfg, check=False)
+            r["counts"] = dict(sorted(wr.counts.items()))
+            r["slides"] = wr.slides
+        _save_ir(work_dir, "build", doc)
+        r["seconds"] = round(r["seconds"] + per, 3)
+        r["seconds_per_page"] = round(r["seconds"] / max(r.get("pages") or 1, 1), 3)
 
 
 def _tune_corpus(results: dict[str, dict[str, Any]], cfg: Config, tune: bool = True) -> None:
@@ -446,6 +522,25 @@ def _tune_corpus(results: dict[str, dict[str, Any]], cfg: Config, tune: bool = T
         except Exception as exc:  # the untuned deck stays
             LOG.error("%s: tuning failed: %s", name, exc)
             r["tune"] = {"skipped": f"{type(exc).__name__}: {exc}"}
+
+
+def _chart_check_corpus(results: dict[str, dict[str, Any]], cfg: Config) -> None:
+    """M9: render-check native charts of every converted file (one PowerPoint)."""
+    for name in sorted(results):
+        r = results[name]
+        if "error" in r or not r.get("counts", {}).get("charts"):
+            continue
+        try:
+            pdf, out = Path(r["pdf"]), Path(r["output"])
+            work_dir = cfg.work_dir / sha256_file(pdf)
+            doc = Document.from_json((work_dir / "ir_build.json").read_text(encoding="utf-8"))
+            rep, r["charts"] = _check_charts(doc, out, work_dir, pdf, cfg, WriteReport())
+            if r["charts"] and r["charts"]["reverted"]:
+                r["counts"] = dict(sorted(rep.counts.items()))
+            _save_ir(work_dir, "build", doc)
+        except Exception as exc:  # the unchecked deck stays
+            LOG.error("%s: chart check failed: %s", name, exc)
+            r["charts"] = {"error": f"{type(exc).__name__}: {exc}"}
 
 
 def _com_check(results: dict[str, dict[str, Any]]) -> None:
