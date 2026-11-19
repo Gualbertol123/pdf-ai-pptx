@@ -18,7 +18,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import log
+from . import log, progress
 from .build.writer import TextOptions, WriteReport, write_pptx
 from .config import Config
 from .ingest import parse, triage
@@ -135,6 +135,7 @@ def analyze(doc: Document, work_dir: Path | None = None, pdf: Path | None = None
             LOG.error("layout refinement failed (%s: %s)", type(exc).__name__, exc,
                       exc_info=LOG.isEnabledFor(10))
     for page in doc.pages:
+        progress.report("analyze", page.index, len(doc.pages))
         try:
             stats.update(shapes.analyze_page(page, wd))
         except Exception as exc:  # graphics are optional: freeforms stay
@@ -206,6 +207,7 @@ def analyzed(pdf: Path, cfg: Config, *, workers: int | None = None,
              use_cache: bool = True) -> tuple[Document, Path, list[str]]:
     """ingest -> triage -> analyze (each cached): (IR, work dir, cached stage names)."""
     pdf = Path(pdf)
+    parse.open_pdf(pdf).close()  # InputError: missing / encrypted / damaged / not a PDF
     sha = sha256_file(pdf)
     work_dir = cfg.work_dir / sha
     work_dir.mkdir(parents=True, exist_ok=True)

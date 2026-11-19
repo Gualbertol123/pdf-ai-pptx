@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pdf2pptx</title>
+<style>
+:root{--bg:#f5f6f8;--panel:#fff;--line:#dde1e8;--text:#1d2433;--muted:#5d6678;--accent:#2f5597;
+--accent-soft:#e6edf8;--ok:#2e7d4f;--err:#b3261e;--warn:#a15c00}
+@media (prefers-color-scheme:dark){:root{--bg:#14171c;--panel:#1c2027;--line:#2c323c;--text:#e3e7ee;
+--muted:#9aa4b5;--accent:#7aa2e3;--accent-soft:#223049;--ok:#6cc08b;--err:#f28b82;--warn:#f0b35a}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+header{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:17px;margin:0}
+.badge{font-size:12px;color:var(--ok);border:1px solid currentColor;border-radius:99px;padding:1px 8px}
+.ver{margin-left:auto;color:var(--muted);font-size:12px}
+main{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px 20px;min-height:calc(100vh - 54px)}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+#drop{border:2px dashed var(--line);border-radius:8px;padding:22px 12px;text-align:center;cursor:pointer;color:var(--muted)}
+#drop.over{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
+#drop strong{display:block;color:var(--text);font-size:15px;margin-bottom:4px}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 3px}
+select,input{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--text);font:inherit}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:18px 0 8px}
+.job{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-bottom:6px;cursor:pointer}
+.job:hover{border-color:var(--accent)} .job.sel{border-color:var(--accent);background:var(--accent-soft)}
+.job .n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.job .m{font-size:12px;color:var(--muted)}
+.st-done{color:var(--ok)} .st-error,.st-interrupted{color:var(--err)} .st-running{color:var(--accent)}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:5px}
+.bar>i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.cache{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--line)}
+.cache span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+button,.btn{font:inherit;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;text-decoration:none;display:inline-block}
+button.ghost,.btn.ghost{background:transparent;color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+#detail{display:flex;flex-direction:column;min-height:420px}
+#detail .head{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px}
+#detail .head h3{margin:0;font-size:16px;margin-right:auto}
+#facts{font-size:13px;color:var(--muted);margin-bottom:10px}
+#facts b{color:var(--text);font-weight:600}
+iframe{flex:1;width:100%;min-height:70vh;border:1px solid var(--line);border-radius:6px;background:#fff}
+.empty{color:var(--muted);margin:auto;text-align:center}
+.err{color:var(--err);white-space:pre-wrap}
+</style>
+</head>
+<body>
+<header><h1>pdf2pptx</h1><span class="badge" title="Bound to 127.0.0.1; no data leaves this PC">local · offline</span><span class="ver" id="ver"></span></header>
+<main>
+  <div>
+    <div class="panel">
+      <div id="drop" tabindex="0" role="button" aria-label="Choose a PDF"><strong>Drop a PDF here</strong>or click to choose one</div>
+      <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+      <div class="row">
+        <div><label for="mode">Mode</label>
+          <select id="mode">
+            <option value="balanced">balanced</option>
+            <option value="fidelity">fidelity</option>
+            <option value="editable">editable</option>
+            <option value="deck">deck (rewrite as a presentation)</option>
+          </select></div>
+        <div><label for="tier">Tier</label>
+          <select id="tier"><option value="auto">auto</option><option value="lite">lite</option><option value="max">max (local models)</option></select></div>
+      </div>
+      <div id="deckopts" hidden>
+        <div class="row">
+          <div><label for="slides">Slides</label><input id="slides" type="number" min="2" max="60" placeholder="auto"></div>
+          <div><label for="lang">Language</label><select id="lang"><option value="auto">as the document</option><option value="it">Italiano</option><option value="en">English</option></select></div>
+        </div>
+        <label for="audience">Audience</label><input id="audience" placeholder="e.g. board members">
+        <div class="hint">Deck mode uses the local text model (Max tier); without it the deck is extractive.</div>
+      </div>
+    </div>
+    <h2>Jobs</h2>
+    <div id="jobs"><div class="hint">No jobs yet.</div></div>
+    <h2>In the cache</h2>
+    <div id="cached" class="panel" style="padding:8px 12px"><div class="hint">Nothing cached.</div></div>
+  </div>
+  <div class="panel" id="detail"><div class="empty">Drop a PDF to convert it, or pick a job.</div></div>
+</main>
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let selected = null, lastPreview = null, data = {jobs: [], cached: []};
+
+function opts() {
+  const p = new URLSearchParams({mode: $("#mode").value, tier: $("#tier").value});
+  if ($("#mode").value === "deck") {
+    if ($("#slides").value) p.set("slides", $("#slides").value);
+    p.set("lang", $("#lang").value);
+    if ($("#audience").value.trim()) p.set("audience", $("#audience").value.trim());
+  }
+  return p;
+}
+$("#mode").addEventListener("change", () => { $("#deckopts").hidden = $("#mode").value !== "deck"; });
+
+async function upload(file) {
+  if (!file) return;
+  if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") { alert("Choose a PDF file."); return; }
+  const p = opts(); p.set("name", file.name);
+  $("#drop").innerHTML = "<strong>Uploading…</strong>" + esc(file.name);
+  try {
+    const r = await fetch("/api/jobs?" + p, {method: "POST", body: file,
+      headers: {"Content-Type": "application/pdf", "X-Requested-With": "pdf2pptx"}});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    selected = j.id; lastPreview = null;
+  } catch (e) { alert("Upload failed: " + e.message); }
+  $("#drop").innerHTML = "<strong>Drop a PDF here</strong>or click to choose one";
+  refresh();
+}
+const drop = $("#drop");
+drop.addEventListener("click", () => $("#file").click());
+drop.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") $("#file").click(); });
+$("#file").addEventListener("change", e => { upload(e.target.files[0]); e.target.value = ""; });
+["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => upload(e.dataTransfer.files[0]));
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => { e.preventDefault(); if (e.target !== drop) upload(e.dataTransfer.files[0]); });
+
+async function rerun(sha) {
+  const r = await fetch("/api/cached/" + sha + "?" + opts(), {method: "POST", headers: {"X-Requested-With": "pdf2pptx"}});
+  const j = await r.json();
+  if (!r.ok) { alert(j.error || r.statusText); return; }
+  selected = j.id; lastPreview = null; refresh();
+}
+
+function pct(j) { return j.total ? Math.round(100 * Math.min(j.done + (j.status === "running" ? 0.5 : 0), j.total) / j.total) : (j.status === "done" ? 100 : 0); }
+function when(t) { return t ? new Date(t * 1000).toLocaleString() : ""; }
+function stageText(j) {
+  if (j.status === "running") return `${esc(j.stage || "starting")}${j.total ? ` ${Math.min(j.done + 1, j.total)}/${j.total}` : ""}${j.message ? " · " + esc(j.message) : ""}`;
+  if (j.status === "done") return `done in ${Math.round((j.finished || 0) - (j.started || 0))} s`;
+  return esc(j.status);
+}
+
+function renderJobs() {
+  const box = $("#jobs");
+  if (!data.jobs.length) { box.innerHTML = '<div class="hint">No jobs yet.</div>'; }
+  else box.innerHTML = data.jobs.map(j => `<div class="job ${j.id === selected ? "sel" : ""}" data-id="${j.id}">
+    <div class="n" title="${esc(j.name)}">${esc(j.name)}</div>
+    <div class="m"><span class="st-${j.status}">${stageText(j)}</span> · ${esc(j.mode)} / ${esc(j.tier)}</div>
+    ${j.status === "running" || j.status === "queued" ? `<div class="bar"><i style="width:${pct(j)}%"></i></div>` : ""}</div>`).join("");
+  box.querySelectorAll(".job").forEach(el => el.addEventListener("click", () => { selected = el.dataset.id; lastPreview = null; render(); }));
+  const c = $("#cached");
+  c.innerHTML = data.cached.length ? data.cached.slice(0, 30).map(x => `<div class="cache"><span title="${esc(x.path)}">${esc(x.name)}</span>
+    ${x.available ? `<button class="ghost" data-sha="${x.sha256}" title="Convert again with the options above (cached stages are reused)">convert</button>` : '<span class="hint">source moved</span>'}</div>`).join("")
+    : '<div class="hint">Nothing cached.</div>';
+  c.querySelectorAll("button[data-sha]").forEach(b => b.addEventListener("click", () => rerun(b.dataset.sha)));
+}
+
+function renderDetail() {
+  const d = $("#detail");
+  const j = data.jobs.find(x => x.id === selected);
+  if (!j) { d.innerHTML = '<div class="empty">Drop a PDF to convert it, or pick a job.</div>'; lastPreview = null; return; }
+  const s = j.summary || {};
+  const facts = [];
+  if (s.pages != null) facts.push(`<b>${s.pages}</b> pages`);
+  if (s.slides != null) facts.push(`<b>${s.slides}</b> slides${s.target_slides ? ` (target ${s.target_slides})` : ""}`);
+  if (s.seconds != null) facts.push(`<b>${s.seconds}</b> s convert`);
+  if (s.scores) facts.push(`SSIM <b>${(s.scores.ssim ?? 0).toFixed(3)}</b> · text <b>${(s.scores.text_sim ?? 0).toFixed(3)}</b> · composite <b>${(s.scores.composite ?? 0).toFixed(3)}</b> (median)`);
+  if (s.plan_source) facts.push(`plan: <b>${esc(s.plan_source)}</b>, ${s.dropped} left out, audit ${s.audit_ok ? '<b class="st-done">ok</b>' : '<b class="st-error">failed</b>'}`);
+  const head = `<div class="head"><h3>${esc(j.name)}</h3>
+    ${j.output && j.status === "done" ? `<a class="btn" href="/api/jobs/${j.id}/download">Download ${esc(j.output_name)}</a>` : ""}
+    ${j.preview ? `<a class="btn ghost" href="/api/jobs/${j.id}/report" target="_blank" rel="noopener">Open preview</a>` : ""}</div>
+    <div id="facts">${esc(j.mode)} / ${esc(j.tier)} · ${stageText(j)} · ${when(j.created)}${facts.length ? "<br>" + facts.join(" · ") : ""}</div>`;
+  const key = j.id + ":" + j.status + ":" + (j.preview || pct(j) + (j.stage || ""));
+  if (lastPreview === key) {  // keep the iframe (and its scroll position); update the header only
+    const h = d.querySelector(".head"), f = d.querySelector("#facts");
+    const tmp = document.createElement("div"); tmp.innerHTML = head;
+    if (h) h.replaceWith(tmp.children[0]); if (f) f.replaceWith(tmp.children[0]);
+    return;
+  }
+  lastPreview = key;
+  let body = "";
+  if (j.status === "error" || j.status === "interrupted") body = `<div class="err">${esc(j.error || j.status)}</div>`;
+  else if (j.preview) body = `<iframe src="/api/jobs/${j.id}/report" title="Preview"></iframe>`;
+  else body = `<div class="empty">${j.status === "queued" ? "Waiting for the job before it…" : "Working… the preview (PDF page, PowerPoint slide, differences) appears here when the job is done."}<div class="bar" style="width:260px;margin:10px auto"><i style="width:${pct(j)}%"></i></div></div>`;
+  d.innerHTML = head + body;
+}
+
+function render() { renderJobs(); renderDetail(); }
+
+async function refresh() {
+  try {
+    const r = await fetch("/api/jobs", {cache: "no-store"});
+    data = await r.json();
+    $("#ver").textContent = "v" + data.version;
+    if (!selected && data.jobs.length) selected = data.jobs[0].id;
+    render();
+  } catch (e) { /* server stopped */ }
+}
+refresh();
+setInterval(() => {
+  const busy = data.jobs.some(j => j.status === "running" || j.status === "queued");
+  if (busy || document.visibilityState === "visible") refresh();
+}, 1000);
+</script>
+</body>
+</html>

@@ -48,7 +48,7 @@ from typing import Any
 
 import numpy as np
 
-from .. import log
+from .. import log, progress
 from ..build.units import ppt_spacing
 from ..build.writer import (
     LINE_BREAK,
@@ -987,6 +987,7 @@ class Tuner:
             return self._finish(t_start)
         dirty = sorted({st.page for st in self.states.values()})
         for rnd in range(self.rounds + 1):
+            progress.report("tune", rnd, self.rounds + 1, "PowerPoint check round")
             evals = self._measure(dirty, rnd)
             self.rep.rounds = rnd
             changed: set[int] = set()

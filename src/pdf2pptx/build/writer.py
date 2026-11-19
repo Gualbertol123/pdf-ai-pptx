@@ -37,7 +37,7 @@ from pptx.oxml.ns import qn
 from pptx.shapes.shapetree import SlideShapeFactory, SlideShapes
 from pptx.util import Emu
 
-from .. import log
+from .. import log, progress
 from ..analyze.builds import absorbed_pages, element_step, page_to_slide, paragraph_steps
 from ..ingest.render import ensure_render
 from ..ir import (
@@ -946,6 +946,7 @@ def _write_slides(prs: Any, doc: Document, work_dir: Path, pdf: Path, opts: Text
     internal: list[tuple[Any, int]] = []
     slides = []
     for page in doc.pages:
+        progress.report("write", page.index, len(doc.pages))
         if page.index in gone:
             continue
         layout = layouts.get(page.layout_id or "") if structured else None

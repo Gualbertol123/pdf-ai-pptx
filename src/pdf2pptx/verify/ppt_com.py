@@ -52,6 +52,9 @@ PARAGRAPH_ENDS = (chr(13), chr(10), chr(11))  # CR, LF, vertical tab (line break
 REGISTRY_DIR = Path(tempfile.gettempdir()) / "pdf2pptx" / "ppt_owned"
 
 
+SIMULATE_MISSING_ENV = "PDF2PPTX_NO_POWERPOINT"  # "1": behave as if PowerPoint were missing
+
+
 class PowerPointUnavailable(RuntimeError):
     """PowerPoint cannot be started or keeps failing; callers degrade (scores = null)."""
 
@@ -270,6 +273,9 @@ class _Worker:
         import win32com.client
 
         pythoncom.CoInitialize()  # this thread becomes the process's single STA
+        if os.environ.get(SIMULATE_MISSING_ENV) == "1":  # M10 hardening: no PowerPoint
+            raise OSError("PowerPoint.Application: class not registered (simulated by "
+                          f"{SIMULATE_MISSING_ENV}=1)")
         before = _ppt_procs()
         ours_before = {(r["pid"], r["ctime"]) for r in registered()}
         app = win32com.client.DispatchEx("PowerPoint.Application")

@@ -36,7 +36,7 @@ from typing import Any
 import pypdfium2 as pdfium
 import pypdfium2.raw as R
 
-from .. import log
+from .. import log, progress
 from ..ir import (
     Annotation,
     AnyElement,
@@ -790,8 +790,42 @@ def outline(doc: Any) -> list[list[Any]]:
     return out
 
 
+class InputError(ValueError):
+    """The PDF cannot be converted at all (missing, encrypted, not a PDF, damaged):
+    the message says why, in words a user can act on."""
+
+
+def open_pdf(pdf: Path) -> Any:
+    """``pdfium.PdfDocument`` or an :class:`InputError` with a clear message."""
+    pdf = Path(pdf)
+    if not pdf.is_file():
+        raise InputError(f"{pdf}: file not found")
+    if pdf.stat().st_size == 0:
+        raise InputError(f"{pdf.name}: the file is empty")
+    with pdf.open("rb") as fh:
+        head = fh.read(1024)
+    if b"%PDF-" not in head:
+        raise InputError(f"{pdf.name}: not a PDF file (no %PDF header)")
+    try:
+        doc = pdfium.PdfDocument(str(pdf))
+    except pdfium.PdfiumError as exc:
+        msg = str(exc).lower()
+        if "password" in msg:
+            raise InputError(f"{pdf.name}: the PDF is encrypted (password protected); "
+                             "open it, remove the password (or print to PDF) and try "
+                             "again") from exc
+        if "format" in msg or "data" in msg:
+            raise InputError(f"{pdf.name}: the PDF is damaged and cannot be read "
+                             f"({exc}); try re-saving it with a PDF viewer") from exc
+        raise InputError(f"{pdf.name}: cannot open the PDF ({exc})") from exc
+    if len(doc) == 0:
+        doc.close()
+        raise InputError(f"{pdf.name}: the PDF has no pages")
+    return doc
+
+
 def metadata(pdf: Path) -> tuple[int, dict[str, str]]:
-    doc = pdfium.PdfDocument(str(pdf))
+    doc = open_pdf(pdf)
     try:
         meta = {k: str(v) for k, v in sorted(doc.get_metadata_dict(skip_empty=True).items())}
         meta["pdf_version"] = str(doc.get_version() or "")
@@ -811,17 +845,20 @@ def parse_document(pdf: Path, work_dir: Path, *, sha256: str = "", workers: int 
     k = min(workers, max(1, n // min_pages_per_worker))
     pages: list[Page] = []
     fonts: dict[str, FontRef] = {}
+    progress.report("read", 0, n)
     if k <= 1:
         pages, fonts = parse_pages(pdf, range(n), work_dir)
     else:
         with ProcessPoolExecutor(max_workers=k) as pool:
             for ps, fs in pool.map(parse_pages, [pdf] * k, _chunks(n, k), [work_dir] * k):
                 pages.extend(ps)
+                progress.report("read", len(pages), n)
                 for key, f in fs.items():
                     have = fonts.setdefault(key, f)
                     for ch, w in f.widths.items():
                         have.widths.setdefault(ch, w)
     pages.sort(key=lambda p: p.index)
+    progress.report("read", n, n)
     sizes = Counter(f"{p.width:g}x{p.height:g}" for p in pages)
     meta["page_sizes"] = ", ".join(f"{s} ({c})" for s, c in sorted(sizes.items()))
     for f in fonts.values():

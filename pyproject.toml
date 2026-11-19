@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pdf2pptx"
-version = "0.1.0"
+version = "1.0.0"
 description = "Local, offline PDF to native, editable PPTX converter with a PowerPoint check-and-correct loop"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -49,6 +49,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "pdf2pptx.ml" = ["manifest.json"]
 "pdf2pptx.llm" = ["manifest.json"]
+"pdf2pptx.ui" = ["index.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

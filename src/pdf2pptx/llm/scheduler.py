@@ -21,7 +21,7 @@ from typing import Any
 
 import psutil
 
-from .. import log
+from .. import log, progress
 from ..ml import models
 from .server import LlamaServer, LLMUnavailable
 from .setup import candidate
@@ -151,7 +151,8 @@ class Scheduler:
                 try:
                     srv = self._server(name)
                     mr.memory = srv.plan.as_dict() if srv.plan else {}
-                    for j in todo:
+                    for k, j in enumerate(todo):
+                        progress.report("model", k, len(todo), f"{name}: {j.tag}")
                         try:
                             r = srv.chat(j.prompt, images=j.images, schema=j.schema,
                                          system=j.system, max_tokens=j.max_tokens)

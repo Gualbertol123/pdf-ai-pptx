@@ -10,6 +10,7 @@ from typing import Any
 
 from . import __version__, log
 from .config import MODES, TIERS, Config, load_config
+from .ingest.parse import InputError
 
 NOT_YET: dict[str, str] = {}
 
@@ -17,7 +18,8 @@ NOT_YET: dict[str, str] = {}
 def _config(args: argparse.Namespace) -> Config:
     overrides: dict[str, Any] = {}
     for key in ("mode", "tier", "workers", "work_dir", "out_dir", "render_dpi", "text_layout",
-                "tune", "tune_rounds", "builds", "structure", "judge"):
+                "tune", "tune_rounds", "builds", "structure", "judge", "deck_slides",
+                "deck_audience", "deck_lang"):
         v = getattr(args, key, None)
         if v is not None:
             overrides[key] = v
@@ -44,6 +46,13 @@ def cmd_corpus(args: argparse.Namespace) -> int:
             cats[e["category"]] = cats.get(e["category"], 0) + 1
         print(f"{len(m['files'])} PDFs: " + ", ".join(f"{k}={v}" for k, v in sorted(cats.items())))
         print(f"manifest: {cfg.corpus_dir / 'manifest.json'}")
+        return 0
+    if args.action == "stress":
+        from .corpus import stress
+
+        out = cfg.work_dir / "stress"
+        for name, path in stress.build(out, cfg.corpus_dir, only=args.only or None).items():
+            print(f"{name:20s} {path.stat().st_size / 2**20:7.1f} MB  {path}")
         return 0
     if args.action == "list":
         from .corpus.build import load_manifest
@@ -113,6 +122,9 @@ def cmd_convert(args: argparse.Namespace) -> int:
 
     cfg = _config(args)
     use_cache = not args.no_cache
+    if args.corpus and cfg.mode == "deck":
+        print("convert: deck mode converts one PDF at a time", file=sys.stderr)
+        return 2
     if args.corpus:
         s = pipeline.convert_corpus(cfg, only=args.only or None, use_cache=use_cache,
                                     check=not args.no_check)
@@ -124,7 +136,17 @@ def cmd_convert(args: argparse.Namespace) -> int:
         return 2
     pdf = Path(args.pdf)
     out = Path(args.output) if args.output else pdf.with_suffix(".pptx")
-    res = pipeline.convert(pdf, out, cfg, use_cache=use_cache)
+    try:
+        if cfg.mode == "deck":
+            from .llm import deck
+
+            print(json.dumps(deck.convert_deck(pdf, out, cfg, use_cache=use_cache), indent=1,
+                             ensure_ascii=False))
+            return 0
+        res = pipeline.convert(pdf, out, cfg, use_cache=use_cache)
+    except InputError as exc:
+        print(f"pdf2pptx: {exc}", file=sys.stderr)
+        return 3
     print(json.dumps(res.as_dict(), indent=1))
     return 0
 
@@ -232,6 +254,14 @@ def cmd_bench(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ui(args: argparse.Namespace) -> int:
+    from .ui import server
+
+    cfg = _config(args)
+    server.serve(cfg, port=args.port, open_browser=not args.no_browser)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="pdf2pptx", description="Local PDF -> editable PPTX")
     p.add_argument("--version", action="version", version=f"pdf2pptx {__version__}")
@@ -252,6 +282,13 @@ def build_parser() -> argparse.ArgumentParser:
                         "reading (auto: max when llama.cpp + a vision model are installed)")
     c.add_argument("--judge", choices=("low", "all", "off"),
                    help="max tier: judge low-confidence regions (default), all, or none")
+    c.add_argument("--slides", dest="deck_slides", type=int,
+                   help="deck mode: number of slides including the title slide "
+                        "(default: from the page count)")
+    c.add_argument("--audience", dest="deck_audience",
+                   help="deck mode: who the deck is for (e.g. \"board members\")")
+    c.add_argument("--lang", dest="deck_lang", choices=("auto", "it", "en"),
+                   help="deck mode: language of the deck (auto = the document's)")
     c.add_argument("--corpus", action="store_true")
     c.add_argument("--workers", type=int, help="process pool size (default 6)")
     c.add_argument("--only", nargs="*", help="corpus mode: names to convert")
@@ -302,7 +339,9 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--no-cache", dest="no_cache", action="store_true")
     t.set_defaults(func=cmd_structure)
 
-    k.add_argument("action", choices=("build", "list"))
+    k.add_argument("action", choices=("build", "list", "stress"),
+                   help="stress: hardening inputs into work/stress (long reports, 50 MB "
+                        "of images, encrypted, corrupted)")
     k.add_argument("--only", nargs="*")
     k.set_defaults(func=cmd_corpus)
 
@@ -334,6 +373,13 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--no-config", dest="no_config", action="store_true",
                    help="do not write the recommended stack to pdf2pptx.toml")
     b.set_defaults(func=cmd_bench)
+
+    w = sub.add_parser("ui", parents=[common],
+                       help="local web app on 127.0.0.1: drag and drop, preview, download")
+    w.add_argument("--port", type=int, default=8765, help="port (default 8765; 0 = any free)")
+    w.add_argument("--no-browser", dest="no_browser", action="store_true",
+                   help="do not open the browser")
+    w.set_defaults(func=cmd_ui)
 
     u = sub.add_parser("setup", parents=[common], help="download models / tools")
     u.add_argument("what", nargs="?", choices=("models", "llm"))

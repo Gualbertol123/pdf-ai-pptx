@@ -13,10 +13,7 @@ __pycache__/
 /work/
 /tools/
 corpus/real/
-out/**/*.pptx
-out/**/*.json
-out/**/*.html
-out/**/*.png
+/out/
 /models/
 *.gguf
 *.onnx

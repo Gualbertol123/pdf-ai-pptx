@@ -31,6 +31,10 @@ $env:PDF2PPTX_ML_DEVICE = "cpu"   # force the CPU (auto | cpu | dml); PDF2PPTX_M
 .venv\Scripts\pdf2pptx bench [--only NAME ...]   # LLM benchmark -> bench/results.md + stack in pdf2pptx.toml
 .venv\Scripts\pdf2pptx bench --long-deck 30 --tier max          # 30-page deck in Max: total time + peak RAM
 .venv\Scripts\pdf2pptx convert ... --tier lite|max --judge low|all|off   # tier auto = max when a VLM is installed
+.venv\Scripts\pdf2pptx convert in.pdf --mode deck --slides 12 [--audience ..] [--lang it|en]  # M10 deck
+.venv\Scripts\pdf2pptx ui [--port 8765] [--no-browser]   # M10 local web app (127.0.0.1 only)
+.venv\Scripts\pdf2pptx corpus stress; .venv\Scripts\python scripts\hardening.py   # M10 hardening
+.venv\Scripts\python packaging\build.py [--onefile]; .venv\Scripts\python packaging\smoke_test.py
 ```
 
 Scoring runs must pass `--tier lite` (or `max`) explicitly: `auto` picks Max on this machine
@@ -140,3 +144,19 @@ milestone must beat. Re-run them if missing.
 - LLM calls are cached in `work/llm_cache` by (model + weights sha, prompt, images,
   schema); delete it to re-measure. Max tier keeps a page's judgment only if its
   composite is not lower than Lite's (`llm/max_tier.keep_best`).
+- Deck mode (M10, `llm/deck.py`): bullets cite block ids; numbers are checked with
+  both separator conventions (`1.250` = `1,250` = `1250`). The plan is made per part
+  (about 22k characters each, slides in proportion), so a long document is covered to
+  its end. A single call over the whole text, cut at the context limit, lost the last
+  third. The audit re-reads the PPTX; `deck_sources.json` holds slide -> pages / blocks,
+  everything dropped, and the audit.
+- Never put generated numbers in slide text (e.g. "Title (2)"): the number audit
+  flags them. Repeated titles get "(cont.)" / "(segue)".
+- `PDF2PPTX_NO_POWERPOINT=1` makes the COM worker fail like a PC without PowerPoint.
+  `PDF2PPTX_HOME` moves the project root (the packaged exe defaults to
+  `%LOCALAPPDATA%\pdf2pptx`).
+- Port 8765 is taken on this PC by another program: `pdf2pptx ui` falls back to a free
+  port. Headless Edge screenshots do not work here (policy); test the UI over HTTP.
+- PyInstaller: the one-folder build (~416 MB) is the one to ship. One-file (~178 MB)
+  works, but every start unpacks it (+15-20 s). Shell heredocs mangle `\n` in Python
+  source: use the editor tools for code with escapes.

@@ -11,7 +11,7 @@
 | 7 | Document structure | **done** | 2026-11-17 |
 | 8 | Hard pages (OCR, layout model, background cleanup) | **done** | 2026-11-18 |
 | 9 | Local model service, benchmark, judgment, charts | **done** | 2026-11-18 |
-| 10 | Document → deck, UI, packaging | not started | |
+| 10 | Document → deck, UI, packaging | **done** | 2026-11-19 |
 
 ---
 
@@ -1839,3 +1839,141 @@ Milestone 10: document -> deck, UI, packaging. Starting points:
 - `max_tier.resolve_stack(check_memory=True)` and the scheduler / cache are ready for
   the text model.
 - Region labels (`region:<label>` notes on groups) can steer deck layouts.
+
+---
+
+## Milestone 10: document → deck, UI, packaging (2026-11-19)
+
+### What exists
+
+- **`llm/deck.py`**: `convert --mode deck [--slides N] [--audience ..] [--lang it|en|auto]`
+  rewrites a long document as a presentation, in four steps.
+  1. **Outline (rules, no model).** The analysed IR becomes sections (headings by
+     size, weight and role), text blocks, tables, charts and pictures with their
+     captions, each keeping its IR id and page.
+  2. **Plan (text model, schema-constrained).** For each slide: a title, 3-5 bullets
+     that cite block ids, one visual to reuse from the outline, and speaker notes.
+     - Long documents are planned in parts of about 22k characters, with slides
+       allocated in proportion, so the whole document is covered.
+     - Without a text model (Lite tier, or no model fits the free RAM) the plan is
+       extractive and marked `source="rule"`.
+  3. **Validate.**
+     - Every bullet must cite an existing block.
+     - Every number in a bullet must appear in its cited blocks (both separator
+       conventions accepted). If it is found elsewhere, that block is cited too;
+       otherwise the bullet is dropped.
+     - Notes sentences and titles with unsourced numbers are dropped or replaced.
+     - Bullets that barely overlap their sources are flagged.
+  4. **Build.** A clean master with the source theme, placeholders, reused tables /
+     charts / pictures scaled into place, and notes with the source pages. Then a
+     PowerPoint fit loop shrinks any text that overflows its placeholder.
+     `deck_sources.json` holds slide → pages / blocks, everything dropped, and the
+     audit, which re-reads the PPTX.
+- **`pdf2pptx ui`** (`ui/server.py`, `ui/index.html`, `progress.py`): a local web app
+  bound to 127.0.0.1, with no external assets.
+  - Drag-and-drop a PDF, pick mode / tier (and slides / language / audience for deck
+    mode).
+  - Progress per stage and page.
+  - Preview: the M3 debug report (PDF | PowerPoint render | diff heatmap) for page
+    conversions; rendered slides with their sources for deck mode.
+  - Download, and job history from `work/ui/jobs` plus the conversion cache.
+  - Jobs run one at a time.
+  - Requests are refused unless the Host header is local (DNS rebinding) and every
+    POST carries `X-Requested-With`; a non-local Origin is refused.
+  - Falls back to a free port when 8765 is taken (it is on this PC).
+- **Packaging** (`packaging/build.py`, `pdf2pptx.spec`, `entry.py`, `smoke_test.py`):
+  - PyInstaller one-folder (~416 MB, the one to ship) and one-file (~178 MB; each
+    start unpacks it, +15-20 s).
+  - Models and llama.cpp stay out of the bundle and come from `pdf2pptx setup`.
+  - Version info in the exe; `PDF2PPTX_HOME` defaults to `%LOCALAPPDATA%\pdf2pptx`.
+- **Hardening.**
+  - Clear errors (exit code 3, no traceback) for encrypted, corrupted and non-PDF
+    files.
+  - A damaged page degrades alone.
+  - `PDF2PPTX_NO_POWERPOINT=1` simulates a PC without PowerPoint.
+  - `pdf2pptx corpus stress` generates the inputs into `work/stress`;
+    `scripts/hardening.py` runs each case in a child process and samples the RSS of the
+    process tree and of POWERPNT.EXE every 0.25 s → `bench/hardening.md`.
+- **Docs**: README (install, setup, modes / tiers, what needs IT, troubleshooting) and
+  `docs/ARCHITECTURE.md`.
+
+### Checks
+
+| Check | Target | Result |
+|---|---|---|
+| Deck mode, 3 reports (+ the 40-page stress report): every bullet has a valid source | 100 % | **r01 9/9, r02 14/14, r03 8/8, 40-page 55/55** (Qwen3.5-9B; the extractive plans pass too) |
+| Numbers absent from the source | 0 | **0** on all four |
+| Text overflowing its placeholder (COM fit check) | 0 | **0** on all four |
+| Slide count within ±2 of `--slides` | | **4/4, 4/4, 4/4, 12/12** (exact) |
+| `pdf2pptx ui` end to end | one file | Over HTTP on a free port: page served offline, Host / Origin guards refuse foreign requests, upload → job → progress → report preview → download → the job in the history after a restart (`tests/test_ui.py`; a manual run on port 8770 with a deck job too) |
+| Packaged exe = dev build (±0.5 %) | 3 corpus files | **identical scores**, one-folder and one-file: d01 0.9961, d26 0.9969, r02 0.9928 composite (`out/package/smoke_test_*.json`) |
+| Hardening: encrypted / corrupted / not a PDF | clear message | exit 3, one-line message naming the problem and the fix, no traceback |
+| Hardening: damaged page | degrades | 3/3 pages converted |
+| Hardening: no PowerPoint | no crash | convert without the tuner (reason recorded), deck without the fit check, score without the PowerPoint metrics |
+| Hardening: 50 MB of images (13 pages) | no crash | 47 s, peak RAM 0.82 GB (PowerPoint 0.28 GB) |
+| Hardening: 300-page PDF (307 pages) | peak RAM logged | **1461 s (4.7 s / page), peak RAM 6.06 GB** (converter + workers; PowerPoint 0.47 GB), 307/307 slides, no fallback |
+| Full corpus, three modes vs M9 | no drop > 1 % | **0 slides worse** on any metric in balanced, fidelity and editable (`m9_*` → `m10_*`, all 62 slides identical) |
+| `pytest -q`, `ruff check .`, `mypy` | clean | **229 passed** (8 min, with PowerPoint and the live Qwen tests), clean, clean |
+
+### Scores vs the M2 baseline (`work/scores/baseline.json` → `m10_balanced`, Lite, median (mean))
+
+| category | ssim | text_sim | lb_match | pos_err pt | native | boxes / slide | composite |
+|---|---|---|---|---|---|---|---|
+| ALL (62) | 0.9888 (0.9865) → **0.9946 (0.9884)** | 1.000 (0.951) → **1.000 (0.990)** | 1.000 (0.935) → **1.000 (0.975)** | 0.508 → **0.467** | 0 → **1.000** | 5 (8.6) → **2 (2.9)** | 0.896 (0.874) → **0.998 (0.989)** |
+| synthetic decks (56) | 0.9915 → 0.9950 | 1.000 (1.000 → 0.989) | 1.000 (0.984 → 0.976) | 0.506 → 0.455 | 0 → 1.000 | 5 → 2 | 0.896 → 0.998 |
+| reports (3) | 0.9579 → 0.9663 | 0.9995 → 1.000 | 1.000 (0.949 → 1.000) | 0.575 → 1.350 | n/a | 46 → 6 | 0.964 → 0.985 |
+| scanned (3) | 0.984 → 0.956 | **0 → 0.994** | 0 → 0.982 | n/a → 7.4 | n/a | 0 → 2 | **0.437 → 0.956** |
+
+- **Fidelity and editable** score the same as balanced.
+- **Scanned pages.** The baseline placed the scan as a picture (high SSIM, no text). M8
+  OCR gives editable text whose glyphs differ slightly from the scan, so SSIM drops
+  and pos_err exists for the first time.
+- **Reports.** pos_err grows because one wrapping box per block replaced one box per
+  line; line breaks match on every line (1.000).
+- **Synthetic text_sim / lb_match means.** These fell slightly because d28's outlined
+  text is now recovered as text: the PDF text layer lacks it, so it is scored against
+  nothing (see the M8 gotcha).
+
+### Speed per tier (this PC: Ryzen 7 / Radeon 780M, 30.7 GB RAM)
+
+| tier / mode | s / page median (mean) |
+|---|---|
+| Lite editable (no tuner) | 0.51 (2.5) |
+| Lite fidelity | 1.28 (3.3) |
+| Lite balanced | 1.51 (4.1) |
+| Max balanced (judgment, M9) | ~21.6 |
+| Deck mode, Qwen3.5-9B | 40-page report → 12 slides in 751 s (~12.5 min); the 1-page reports were not timed |
+| 300-page PDF, Lite balanced | 4.7 s / page, peak 6.06 GB |
+
+The means are pulled up by first-page costs: model warm-up, the PowerPoint start and
+OCR on the scanned pages.
+
+### Known limitations
+
+1. **The best text / vision model does not fit.** Qwen3.6-35B-A3B needs ~22 GB free,
+   and only the 9B / 4B run next to the user's usual programs. The judgment pass found
+   nothing to change on this corpus (M9).
+2. **Deck mode is slow on long documents** (~19 s per source page with the 9B) and
+   depends on the model's grouping. The extractive fallback is grounded but plain.
+3. **Scanned pages lose SSIM** against the scan (0.98 → 0.96) in exchange for
+   editable text. Rotated / handwritten text, math and complex tables in scans are not
+   handled.
+4. **Charts.** Only native-looking vector charts become chart objects; raster charts
+   stay pictures (keep-best).
+5. **Structure** (M7): one master per deck, additive builds only, notes only from
+   comments.
+6. **Packaging.** The one-folder build is 416 MB, and the unsigned exe may trigger
+   SmartScreen / antivirus prompts.
+
+### Recommended next steps
+
+- **RAM 64 GB** (or a dGPU with ≥ 16 GB): Qwen3.6-35B-A3B / gpt-oss-20b for deck
+  planning and judgment, and parallel model jobs.
+- **NPU** (Ryzen AI): run the ONNX OCR / layout models through the VitisAI execution
+  provider to free the iGPU for llama.cpp.
+- **Math OCR** (formula recognition → OMML `Equation` elements; the IR type exists
+  since M1).
+- **PaddleOCR-VL for tables in scans** (benchmarked best table reader, not used yet).
+- **Real documents** in `corpus/real/`: the judgment pass and deck mode need them to
+  show measurable gains.
+- **Code-sign the exe**, and add an installer that runs `pdf2pptx setup`.

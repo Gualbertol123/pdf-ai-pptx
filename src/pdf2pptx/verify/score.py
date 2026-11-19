@@ -18,7 +18,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from .. import log
+from .. import log, progress
 from ..config import Config
 from . import diff, metrics, ppt_com
 from .diff import ElementBox
@@ -119,6 +119,7 @@ def score_pair(
     com_times: list[float] = []
     try:
         for i in range(n):
+            progress.report("check", i, n, "render and compare")
             row: dict[str, Any] = {"index": i}
             if i >= len(refs) or i >= len(stats.slides):
                 row.update({k: 0.0 for k in METRIC_KEYS if HIGHER_IS_BETTER[k]})

@@ -34,7 +34,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from .. import log
+from .. import log, progress
 from ..ingest.render import ensure_render
 from ..ir import Color, Document, FontRef, Glyph, Image, Page, Shape
 from . import fontfit, inpaint, layout, models, ocr_engine, runtime, winocr
@@ -877,7 +877,8 @@ def run(doc: Document, pdf: Path, work_dir: Path) -> Document:
             p.triage.reason += f"; {msg}"
         doc.metadata[META_KEY] = json.dumps(report, sort_keys=True)
         return doc
-    for page in targets:
+    for k, page in enumerate(targets):
+        progress.report("ocr", k, len(targets))
         try:
             info = HANDLERS[page.triage.kind](doc, page, pdf, work_dir)
         except Exception as exc:

@@ -7,6 +7,7 @@ Tiers: lite | max (``auto`` picks from hardware and installed models).
 from __future__ import annotations
 
 import os
+import sys
 import tomllib
 from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
@@ -16,8 +17,23 @@ MODES = ("fidelity", "balanced", "editable", "deck")
 TIERS = ("auto", "lite", "max")
 TEXT_LAYOUTS = ("blocks", "lines")  # lines = the M2 baseline, one box per line
 JUDGE_SCOPES = ("low", "all", "off")  # max tier: judge low-confidence regions / all / none
+DECK_LANGS = ("auto", "it", "en")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+def _project_root() -> Path:
+    """The source checkout; for the packaged exe (PyInstaller, ``sys.frozen``) the
+    per-user data folder ``%LOCALAPPDATA%/pdf2pptx`` (work cache, tools/llama.cpp,
+    pdf2pptx.toml). ``PDF2PPTX_HOME`` overrides both."""
+    env = os.environ.get("PDF2PPTX_HOME")
+    if env:
+        return Path(env)
+    if getattr(sys, "frozen", False):
+        base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+        return Path(base) / "pdf2pptx"
+    return Path(__file__).resolve().parents[2]
+
+
+PROJECT_ROOT = _project_root()
 CONFIG_FILENAME = "pdf2pptx.toml"
 
 
@@ -121,6 +137,10 @@ class Config:
     llm_chart: str | None = None
     llm_doc: str | None = None  # document model (tables / charts), benchmarked
     llm_text: str | None = None
+    # M10 deck mode: slides in total (None = from the page count), audience, language
+    deck_slides: int | None = None
+    deck_audience: str = ""
+    deck_lang: str = "auto"
 
     def __post_init__(self) -> None:
         if self.mode not in MODES:
@@ -131,6 +151,8 @@ class Config:
             raise ValueError("workers must be >= 1")
         if self.judge not in JUDGE_SCOPES:
             raise ValueError(f"judge must be one of {JUDGE_SCOPES}, got {self.judge!r}")
+        if self.deck_lang not in DECK_LANGS:
+            raise ValueError(f"deck_lang must be one of {DECK_LANGS}, got {self.deck_lang!r}")
         if self.text_layout not in TEXT_LAYOUTS:
             raise ValueError(f"text_layout must be one of {TEXT_LAYOUTS}, "
                              f"got {self.text_layout!r}")

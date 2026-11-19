@@ -1,0 +1,169 @@
+[
+ {
+  "case": "corrupted",
+  "rc": 3,
+  "seconds": 1.8,
+  "peak_rss_gb": 0.05,
+  "peak_powerpoint_gb": 0.21,
+  "lowest_available_gb": 11.85,
+  "stderr_tail": [
+   "pdf2pptx: corrupted.pdf: the PDF is damaged and cannot be read (Failed to load document (PDFium: Data format error).); try re-saving it with a PDF viewer"
+  ],
+  "traceback": false,
+  "expect": "exit code 3, message says damaged",
+  "brief": {}
+ },
+ {
+  "case": "damaged_page",
+  "rc": 0,
+  "seconds": 27.8,
+  "peak_rss_gb": 1.24,
+  "peak_powerpoint_gb": 0.22,
+  "lowest_available_gb": 10.52,
+  "stderr_tail": [
+   "17:40:36 WARNING pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats",
+   "17:40:36 WARNING pdfminer.pdfinterp: Execute called on non-indirect object (inline image?) <PDFStream(None): raw=0, {}>",
+   "17:40:36 WARNING pdf2pptx.ingest.parse: damaged_page.pdf p0: pdfium vs pdfplumber disagree: {'page': 0, 'ours': 46, 'pdfplumber': 0, 'text_ratio': 0.0, 'median_dx': None, 'max_dx': None}"
+  ],
+  "traceback": false,
+  "expect": "converts; the broken page degrades, the others convert",
+  "brief": {
+   "pages": 3,
+   "slides": 3,
+   "seconds": 24.87,
+   "seconds_per_page": 8.29,
+   "fallback_pages": [],
+   "errors": [],
+   "tune": "ran"
+  }
+ },
+ {
+  "case": "encrypted",
+  "rc": 3,
+  "seconds": 1.8,
+  "peak_rss_gb": 0.05,
+  "peak_powerpoint_gb": 0.21,
+  "lowest_available_gb": 11.84,
+  "stderr_tail": [
+   "pdf2pptx: encrypted.pdf: the PDF is encrypted (password protected); open it, remove the password (or print to PDF) and try again"
+  ],
+  "traceback": false,
+  "expect": "exit code 3, message names the password",
+  "brief": {}
+ },
+ {
+  "case": "images_50mb",
+  "rc": 0,
+  "seconds": 46.9,
+  "peak_rss_gb": 0.82,
+  "peak_powerpoint_gb": 0.28,
+  "lowest_available_gb": 17.67,
+  "stderr_tail": [],
+  "traceback": false,
+  "expect": "converts; pictures kept",
+  "brief": {
+   "pages": 13,
+   "slides": 13,
+   "seconds": 42.481,
+   "seconds_per_page": 3.268,
+   "fallback_pages": [],
+   "errors": [],
+   "tune": "ran"
+  }
+ },
+ {
+  "case": "long_report_300p",
+  "rc": 0,
+  "seconds": 1461.4,
+  "peak_rss_gb": 6.06,
+  "peak_powerpoint_gb": 0.47,
+  "lowest_available_gb": 12.6,
+  "stderr_tail": [
+   "09:29:30 WARNING pdf2pptx.verify.ppt_com: PowerPoint call export_pdf failed: export_pdf: no heartbeat for 30s",
+   "09:29:30 WARNING pdf2pptx.verify.ppt_com: PowerPoint worker restart #8: export_pdf: no heartbeat for 30s",
+   "09:30:04 WARNING pdf2pptx.verify.ppt_com: PowerPoint call export_pdf failed: export_pdf: no heartbeat for 30s",
+   "09:30:04 WARNING pdf2pptx.verify.ppt_com: PowerPoint worker restart #9: export_pdf: no heartbeat for 30s",
+   "09:30:38 WARNING pdf2pptx.verify.ppt_com: PowerPoint call export_pdf failed: export_pdf: no heartbeat for 30s",
+   "09:30:38 WARNING pdf2pptx.verify.tuner: tuner: PDF round trip failed (export_pdf: gave up after 3 restarts (export_pdf: no heartbeat for 30s)); positions not tuned"
+  ],
+  "traceback": false,
+  "expect": "converts; time and peak RAM logged",
+  "brief": {
+   "pages": 307,
+   "slides": 307,
+   "seconds": 1457.198,
+   "seconds_per_page": 4.747,
+   "fallback_pages": [],
+   "errors": [],
+   "tune": "ran"
+  }
+ },
+ {
+  "case": "no_powerpoint_convert",
+  "rc": 0,
+  "seconds": 8.5,
+  "peak_rss_gb": 0.16,
+  "peak_powerpoint_gb": 0.22,
+  "lowest_available_gb": 11.58,
+  "stderr_tail": [],
+  "traceback": false,
+  "expect": "converts without the tuner / checks",
+  "brief": {
+   "pages": 1,
+   "slides": 1,
+   "seconds": 6.394,
+   "seconds_per_page": 6.394,
+   "fallback_pages": [],
+   "errors": [],
+   "tune": "PowerPoint unavailable: cannot start PowerPoint via COM: OSError: PowerPoint.Application: class not registered (simulated by PDF2PPTX_NO_POWERPOINT=1)"
+  }
+ },
+ {
+  "case": "no_powerpoint_deck",
+  "rc": 0,
+  "seconds": 5.9,
+  "peak_rss_gb": 0.12,
+  "peak_powerpoint_gb": 0.22,
+  "lowest_available_gb": 11.64,
+  "stderr_tail": [
+   "17:41:41 WARNING pdf2pptx.llm.deck: deck mode needs the Max tier for the text model; writing an extractive deck (first sentences per section)",
+   "17:41:42 WARNING pdf2pptx.llm.deck: deck: PowerPoint fit check unavailable (cannot start PowerPoint via COM: OSError: PowerPoint.Application: class not registered (simulated by PDF2PPTX_NO_POWERPOINT=1))"
+  ],
+  "traceback": false,
+  "expect": "extractive deck, fit check skipped",
+  "brief": {
+   "pages": 1,
+   "slides": 4,
+   "seconds": 3.83,
+   "errors": []
+  }
+ },
+ {
+  "case": "no_powerpoint_score",
+  "rc": 0,
+  "seconds": 5.9,
+  "peak_rss_gb": 0.15,
+  "peak_powerpoint_gb": 0.22,
+  "lowest_available_gb": 11.55,
+  "stderr_tail": [
+   "17:41:22 WARNING pdf2pptx.verify.score: PowerPoint unavailable: PowerPointUnavailable: cannot start PowerPoint via COM: OSError: PowerPoint.Application: class not registered (simulated by PDF2PPTX_NO_POWERPOINT=1)"
+  ],
+  "traceback": false,
+  "expect": "scores without the PowerPoint metrics",
+  "brief": {}
+ },
+ {
+  "case": "not_a_pdf",
+  "rc": 3,
+  "seconds": 1.7,
+  "peak_rss_gb": 0.05,
+  "peak_powerpoint_gb": 0.21,
+  "lowest_available_gb": 11.86,
+  "stderr_tail": [
+   "pdf2pptx: not_a_pdf.pdf: not a PDF file (no %PDF header)"
+  ],
+  "traceback": false,
+  "expect": "exit code 3, message says not a PDF",
+  "brief": {}
+ }
+]
