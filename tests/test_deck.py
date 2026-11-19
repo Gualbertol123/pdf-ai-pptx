@@ -79,6 +79,8 @@ def test_outline_sections_captions_and_skips() -> None:
     ("0,5 points", "a gain of 0.5", []),
     ("13 sites", "5 sites and 42 volunteers", ["13"]),
     ("in 2027", "in 2026", ["2027"]),
+    ("costs -1% Y/Y", "Costs (2,261) −1%", []),  # typographic minus in the source
+    ("a decrease of 23bps", "default rate −23bps", []),  # the magnitude is sourced
 ])
 def test_number_checker(text: str, source: str, missing: list[str]) -> None:
     assert deck.missing_numbers(text, source) == missing

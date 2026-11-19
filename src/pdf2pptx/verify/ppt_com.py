@@ -418,7 +418,7 @@ class _Worker:
                 _collect_text_frame(_RAW(shape, "Shape", "TextFrame2"), item.name,
                                     item.shape_id, out)
             else:  # table / group
-                _collect_shape(shape, out, item.spanned)
+                _collect_shape(shape, out, item.spanned, item.grids)
             self.beat()
         return out
 
@@ -562,15 +562,32 @@ def _collect_text_frame(tf2: Any, name: str, sid: int, out: list[TextShape],
     out.append(ts)
 
 
+def _com_sizes(coll: Any, iface: str, item_iface: str, prop: str, n: int,
+               fallback: list[float] | None) -> list[float] | None:
+    """Column widths / row heights through COM; a size PowerPoint cannot report (seen
+    on a real deck: ``Column.Width : Failed``) comes from the file instead (M10)."""
+    out = []
+    for k in range(1, n + 1):
+        try:
+            out.append(float(_RAW(_RAW(coll, iface, "Item", k), item_iface, prop)))
+        except Exception:
+            if fallback is None or k > len(fallback):
+                return None
+            out.append(fallback[k - 1])
+    return out
+
+
 def _collect_shape(shape: Any, out: list[TextShape],
-                   spanned: dict[int, set[tuple[int, int]]]) -> None:
+                   spanned: dict[int, set[tuple[int, int]]],
+                   grids: dict[int, tuple[list[float], list[float]]] | None = None) -> None:
     """Generic walk of one shape (raw IDispatch): groups recurse, tables per cell."""
+    grids = grids or {}
     raw = _RAW
     name = str(raw(shape, "Shape", "Name"))
     if int(raw(shape, "Shape", "Type")) == MSO_GROUP:
         items = raw(shape, "Shape", "GroupItems")
         for k in range(1, int(raw(items, "GroupShapes", "Count")) + 1):
-            _collect_shape(raw(items, "GroupShapes", "Item", k), out, spanned)
+            _collect_shape(raw(items, "GroupShapes", "Item", k), out, spanned, grids)
         return
     sid = int(raw(shape, "Shape", "Id"))
     if raw(shape, "Shape", "HasTable"):
@@ -581,10 +598,11 @@ def _collect_shape(shape: Any, out: list[TextShape],
         tbl = raw(shape, "Shape", "Table")
         rows, cols = raw(tbl, "Table", "Rows"), raw(tbl, "Table", "Columns")
         n_rows, n_cols = int(raw(rows, "Rows", "Count")), int(raw(cols, "Columns", "Count"))
-        widths = [float(raw(raw(cols, "Columns", "Item", c), "Column", "Width"))
-                  for c in range(1, n_cols + 1)]
-        heights = [float(raw(raw(rows, "Rows", "Item", r), "Row", "Height"))
-                   for r in range(1, n_rows + 1)]
+        fw, fh = grids.get(sid, (None, None))
+        widths = _com_sizes(cols, "Columns", "Column", "Width", n_cols, fw)
+        heights = _com_sizes(rows, "Rows", "Row", "Height", n_rows, fh)
+        if widths is None or heights is None:
+            return  # sizes unknown: this table's text is left out, the rest still counts
         skip = spanned.get(sid, set())
         left, top = float(raw(shape, "Shape", "Left")), float(raw(shape, "Shape", "Top"))
         for r in range(1, n_rows + 1):
@@ -616,6 +634,14 @@ class _PlanItem:
     name: str
     spanned: dict[int, set[tuple[int, int]]] = field(default_factory=dict)
     scope: str = "slide"  # slide | layout | master (M7: inherited shapes that render)
+    # table shape id -> (column widths, row heights) in pt from the file (COM fallback)
+    grids: dict[int, tuple[list[float], list[float]]] = field(default_factory=dict)
+
+
+def _file_grid(t: Any) -> tuple[list[float], list[float]]:
+    from ..build.units import emu_to_pt
+
+    return ([emu_to_pt(c.width) for c in t.columns], [emu_to_pt(r.height) for r in t.rows])
 
 
 def _has_text(tf: Any) -> bool:
@@ -658,7 +684,8 @@ def _text_plan(pptx: Path) -> list[list[_PlanItem]]:
                     t = shp.table
                     spanned = {(r, c) for r in range(len(t.rows)) for c in range(len(t.columns))
                                if t.cell(r, c).is_spanned}
-                    items.append(_PlanItem(idx, "table", sid, name, {sid: spanned}, scope=scope))
+                    items.append(_PlanItem(idx, "table", sid, name, {sid: spanned}, scope=scope,
+                                           grids={sid: _file_grid(t)}))
                 elif getattr(shp, "has_text_frame", False) and shp.has_text_frame and _has_text(
                         shp.text_frame):
                     items.append(_PlanItem(idx, "text", sid, name, scope=scope))

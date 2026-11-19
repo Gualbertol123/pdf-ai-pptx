@@ -9,6 +9,10 @@ Runs before text grouping, on the page's glyphs and vector paths:
   common edge or they lie in different fill rectangles; otherwise they are merged.
   Merged regions must be rectangles. Fills, borders (width, colour, dash) and the
   header row come from the same paths.
+* **Numeric tables** (M10 follow-up, real financial decks): figures whose right edges
+  line up on >= 4 rows in >= 3 columns, even when the columns are no wider apart than
+  words (so gap splitting cannot see them), with the labels left of the first column
+  (up to a wide gap: a side panel stays out) and up to three header lines above.
 * **Whitespace tables.** Text lines split at wide gaps give segments; consecutive,
   evenly spaced rows with two or more segments whose x ranges leave common empty
   gutters form columns. Rules lying on row boundaries (booktabs style) become
@@ -690,6 +694,244 @@ def _ws_grid(run: list[list[_WSeg]], hrules: list[Seg]) -> Grid | None:
     return grid
 
 
+# --------------------------------------------------------------------------- numeric tables
+
+
+_NUM_TOKEN = re.compile(r"^[(\[]?[+\-−–]?[€$£]?\d[\d.,']*[%x]?[)\]]?[*¹²³]?$"
+                        r"|^[+\-−–]?n\.?\s?[ma]\.?$|^[-–—]$")
+_UNIT_TOKEN = re.compile(r"^(p\.?p\.?|pp|bps?|x|%|bn|m|mn|k)$", re.IGNORECASE)
+NUM_MIN_ROWS = 4  # rows with numbers in >= NUM_MIN_COLS aligned columns
+NUM_MIN_COLS = 3
+NUM_MIN_FILL = 0.7  # share of (row, figure column) cells holding a number
+
+
+@dataclass
+class _Tok:
+    line: int
+    a0: float
+    a1: float
+    text: str
+    ids: list[str]
+    numeric: bool
+
+
+def _visual_rows(lines: list[tg.Line]) -> list[tg.Line]:
+    """Lines on one baseline (a row's label, its quarterly and its yearly figures are
+    separate text lines in the PDF) joined into one line, words in x order. Lines of a
+    much bigger size (a side panel's title next to the table) stay apart."""
+    out: list[tg.Line] = []
+    for ln in lines:
+        prev = out[-1] if out else None
+        if (prev is not None and abs(ln.base - prev.base) <= 0.3 * max(min(ln.size, prev.size), 1.0)
+                and 0.7 <= ln.size / max(prev.size, 1.0) <= 1.4):
+            words = sorted([*prev.words, *ln.words], key=lambda w: w.a0)
+            prev.glyphs = sorted([*prev.glyphs, *ln.glyphs], key=lambda x: x.a)
+            prev.words = words
+            prev.size = max(prev.size, ln.size)
+        else:
+            out.append(tg.Line(glyphs=list(ln.glyphs), base=ln.base, size=ln.size,
+                               words=list(ln.words)))
+    return out
+
+
+def ws_sizes(ln: tg.Line, toks: list[_Tok]) -> list[float]:
+    """Glyph sizes of the given tokens of a line (at least one value)."""
+    ids = {i for t in toks for i in t.ids}
+    return [x.g.size for x in ln.glyphs if x.g.id in ids] or [ln.size]
+
+
+def _line_tokens(lines: list[tg.Line]) -> list[list[_Tok]]:
+    """Words per line; a unit word ("p.p.", "bps") joins the number before it."""
+    out: list[list[_Tok]] = []
+    for li, ln in enumerate(lines):
+        toks: list[_Tok] = []
+        for w in ln.words:
+            text = w.text.strip()
+            ids = [x.g.id for x in w.glyphs if not x.space]
+            if (toks and toks[-1].numeric and _UNIT_TOKEN.match(text)
+                    and w.a0 - toks[-1].a1 <= 0.6 * ln.size):
+                t = toks[-1]
+                t.a1, t.text, t.ids = w.a1, f"{t.text} {text}", t.ids + ids
+                continue
+            toks.append(_Tok(li, w.a0, w.a1, text, ids, bool(_NUM_TOKEN.match(text))))
+        out.append(toks)
+    return out
+
+
+def _right_columns(toks: list[_Tok], size: float) -> list[list[_Tok]]:
+    """Numeric tokens clustered into columns by horizontal overlap.
+
+    Measured on real decks (M10): figures in one column are not exactly right-aligned
+    (right edges spread by up to ~7 pt: centred cells, bold totals), but they overlap
+    each other, while neighbouring columns are well apart. A token joins the column it
+    overlaps by at least half of the narrower width; columns that end up overlapping
+    that much are merged."""
+    nums = sorted((t for t in toks if t.numeric), key=lambda t: (t.a0 + t.a1) / 2)
+    cols: list[list[Any]] = []  # [lo, hi, tokens]
+
+    def ov(lo: float, hi: float, a: float, b: float) -> bool:
+        return min(hi, b) - max(lo, a) >= 0.5 * max(min(hi - lo, b - a), 0.5)
+
+    for t in nums:
+        for c in reversed(cols):
+            if ov(c[0], c[1], t.a0, t.a1):
+                c[0], c[1] = min(c[0], t.a0), max(c[1], t.a1)
+                c[2].append(t)
+                break
+        else:
+            cols.append([t.a0, t.a1, [t]])
+    merged = True
+    while merged:
+        merged = False
+        cols.sort(key=lambda c: c[0])
+        for i in range(len(cols) - 1):
+            a, b = cols[i], cols[i + 1]
+            if ov(a[0], a[1], b[0], b[1]):
+                cols[i] = [min(a[0], b[0]), max(a[1], b[1]), a[2] + b[2]]
+                del cols[i + 1]
+                merged = True
+                break
+    return [c[2] for c in cols if len({t.line for t in c[2]}) >= NUM_MIN_ROWS]
+
+
+def numeric_grids(page: Page, fonts: dict[str, FontRef], matches: dict[str, FontMatch],
+                  skip: set[str]) -> list[tuple[Grid, set[str]]]:
+    """Tables of figures whose columns are not separated by visible gaps (financial
+    statements set with tight, right-aligned columns): numbers whose right edges line up
+    on >= 4 rows in >= 3 columns, with the label words left of the first column and up
+    to three header lines above. Returns (grid, glyph ids of the table)."""
+    vis = [(i, g) for i, g in enumerate(page.glyphs)
+           if g.render_mode not in (3, 7) and g.color.alpha > 0.01 and g.id not in skip
+           and abs(g.rotation) < 0.5]
+    if len(vis) < 30:
+        return []
+    ctx = tg.Ctx(page=page, fonts=fonts, matches=matches)
+    lines = tg._form_lines(tg._to_local(ctx, vis))
+    for ln in lines:
+        tg._words(ctx, ln)
+    lines = _visual_rows(sorted((ln for ln in lines if ln.words),
+                                key=lambda ln: (ln.base, ln.a0)))
+    if not lines:
+        return []
+    size = statistics.median(ln.size for ln in lines)
+    per_line = _line_tokens(lines)
+    cols = _right_columns([t for ts in per_line for t in ts], size)
+    if len(cols) < NUM_MIN_COLS:
+        return []
+    in_col = {id(t): k for k, c in enumerate(cols) for t in c}
+    rows = [li for li, ts in enumerate(per_line)
+            if len({in_col[id(t)] for t in ts if id(t) in in_col}) >= NUM_MIN_COLS]
+    # runs of rows: no vertical jump larger than 3.5 x the text size
+    runs: list[list[int]] = []
+    for li in rows:
+        if runs and lines[li].base - lines[runs[-1][-1]].base <= 3.5 * max(lines[li].size, 1.0):
+            runs[-1].append(li)
+        else:
+            runs.append([li])
+    out: list[tuple[Grid, set[str]]] = []
+    for run in runs:
+        if len(run) < NUM_MIN_ROWS:
+            continue
+        res = _numeric_grid(lines, per_line, cols, in_col, run, size)
+        if res is not None:
+            out.append(res)
+    return out
+
+
+def _numeric_grid(lines: list[tg.Line], per_line: list[list[_Tok]], cols: list[list[_Tok]],
+                  in_col: dict[int, int], run: list[int], size: float
+                  ) -> tuple[Grid, set[str]] | None:
+    run_set = set(run)
+    used = sorted({k for li in run for t in per_line[li] if id(t) in in_col
+                   for k in [in_col[id(t)]]})
+    keep = [k for k in used if sum(1 for t in cols[k] if t.line in run_set)
+            >= max(NUM_MIN_ROWS - 1, 0.4 * len(run))]
+    if len(keep) < NUM_MIN_COLS:
+        return None
+    spans = []
+    for k in keep:
+        ts = [t for t in cols[k] if t.line in run_set]
+        spans.append((min(t.a0 for t in ts), max(t.a1 for t in ts)))
+    spans.sort()
+    for (_a0, a1), (b0, _b1) in itertools.pairwise(spans):
+        if b0 < a1 - 0.5:  # columns overlap: not a clean grid
+            return None
+    first = spans[0][0]
+    # labels: the words just left of the first column, up to a wide gap (a side panel)
+    label_x0: list[float] = []
+    label_x1: list[float] = []
+    members: set[str] = set()
+    for li in run:
+        ts = [t for t in per_line[li] if t.a1 <= first - 0.2 * size]
+        grp: list[_Tok] = []
+        for t in reversed(ts):
+            if grp and grp[0].a0 - t.a1 > 2.0 * size:
+                break
+            grp.insert(0, t)
+        if grp:
+            label_x0.append(grp[0].a0)
+            label_x1.append(grp[-1].a1)
+            members |= {i for t in grp for i in t.ids}
+    has_label = len(label_x0) >= 0.5 * len(run)
+    right = spans[-1][1]
+    # guards against chart data labels (scattered figures, no row labels): a numeric
+    # table has a label column and its figure cells are mostly filled
+    if not has_label or max(label_x1) >= first - 0.1 * size:
+        return None
+    left = min(label_x0)
+    filled = sum(1 for li in run for a, b in spans
+                 if any(t.numeric and t.a0 < b and t.a1 > a for t in per_line[li]))
+    if filled < NUM_MIN_FILL * len(run) * len(spans):
+        return None
+    row_size = statistics.median(lines[li].size for li in run)
+    # header lines just above the first row, within the table's width
+    header: list[int] = []
+    top = lines[run[0]].base
+    for li in range(run[0] - 1, max(run[0] - 8, -1), -1):
+        ln = lines[li]
+        if top - ln.base > 3.2 * size * (len(header) + 1):
+            break
+        ws = [t for t in per_line[li] if t.a0 >= left - 0.5 * size and t.a1 <= right + 0.5 * size]
+        if not ws:
+            continue  # a line beside the table (a side panel's title)
+        if not 0.7 <= max(ws_sizes(lines[li], ws)) / max(row_size, 1.0) <= 1.3:
+            break  # bigger text above the table: its title, not a header
+        hits = sum(1 for t in ws for a, b in spans if t.a0 < b + 0.5 * size and t.a1 > a - size)
+        if hits < 2:
+            break
+        header.insert(0, li)
+    all_rows = header + run
+    # every token of a table row inside the table's x range belongs to it
+    for li in all_rows:
+        for t in per_line[li]:
+            if t.a0 >= left - 0.5 * size and t.a1 <= right + 0.5 * size:
+                members |= set(t.ids)
+    pad = 0.4 * size
+    xs = [left - pad]
+    if has_label:
+        xs.append((max(label_x1) + first) / 2)
+    xs += [(a[1] + b[0]) / 2 for a, b in itertools.pairwise(spans)]
+    xs.append(right + pad)
+    tops = [min(x.top for x in lines[li].glyphs if not x.space) for li in all_rows]
+    bots = [max(x.bot for x in lines[li].glyphs if not x.space) for li in all_rows]
+    ys = [tops[0] - 0.3 * size]
+    ys += [(bots[r] + tops[r + 1]) / 2 for r in range(len(all_rows) - 1)]
+    ys.append(bots[-1] + 0.3 * size)
+    xs = [round(v, 3) for v in xs]
+    ys = [round(v, 3) for v in ys]
+    if any(b <= a for a, b in itertools.pairwise(xs)) or any(
+            b <= a for a, b in itertools.pairwise(ys)):
+        return None
+    grid = Grid(xs=xs, ys=ys, kind="numeric", confidence=0.8,
+                notes=[f"numeric_columns:{len(spans)}", f"header_lines:{len(header)}"])
+    n_r, n_c = grid.rows, grid.cols
+    sep_v = {(r, c): True for r in range(n_r) for c in range(n_c - 1)}
+    sep_h = {(r, c): True for r in range(n_r - 1) for c in range(n_c)}
+    if not merge_regions(grid, sep_h, sep_v):
+        return None
+    return grid, members
+
+
 # --------------------------------------------------------------------------- page driver
 
 
@@ -723,8 +965,23 @@ def analyze_page(page: Page, fonts: dict[str, FontRef], matches: dict[str, FontM
             consumed[f.sid] += 1
         tables.append(t)
         used_glyphs |= ids
-    # whitespace tables on the remaining text
     hrules = [s for s in segs if s.orient == "h" and consumed.get(s.sid, 0) < nseg.get(s.sid, 1)]
+    # numeric tables (tight right-aligned figure columns), then whitespace tables
+    for grid, ids in numeric_grids(page, fonts, matches, used_glyphs):
+        gs = [g for g in _visible(page, used_glyphs) if g.id in ids]
+        tid = f"p{page.index}_t{len(tables) + 1}"
+        box = (grid.xs[0], grid.ys[0], grid.xs[-1], grid.ys[-1])
+        rules = [h for h in hrules if box[1] - 1 <= h.pos <= box[3] + 1
+                 and h.a >= box[0] - 20 and h.b <= box[2] + 20]
+        res = build_table(page, fonts, matches, grid, gs, rules, [], tid,
+                          min((g.z for g in gs), default=0))
+        if res is None:
+            continue
+        t, ids = res
+        for h in rules:
+            consumed[h.sid] += 1
+        tables.append(t)
+        used_glyphs |= ids
     wsegs = text_segments(page, fonts, matches, used_glyphs)
     for grid, members in whitespace_grids(wsegs, hrules):
         if grid.confidence < MIN_CONFIDENCE:

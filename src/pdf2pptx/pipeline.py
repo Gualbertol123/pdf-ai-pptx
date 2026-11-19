@@ -28,9 +28,9 @@ LOG = log.get(__name__)
 
 STAGE_VERSIONS = {
     "ingest": parse.PARSER_VERSION,
-    "triage": "2.0",
+    "triage": "2.1",
     "ocr": "8.1",  # + the OCR engine / models installed (stage_versions)
-    "analyze": "charts-9.0",
+    "analyze": "charts-9.1",
 }
 STAGES = tuple(STAGE_VERSIONS)
 

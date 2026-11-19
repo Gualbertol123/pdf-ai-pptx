@@ -2,7 +2,8 @@
 
 Rules only (PLAN.md §8 rule 2), computed from the ingested IR:
 
-* **scanned**: (almost) no visible glyphs and images cover most of the page.
+* **scanned**: no visible glyphs and images cover most of the page, or fewer than 10
+  visible glyphs and images cover >= 90% of it.
   An invisible OCR text layer over the image is reported in the reason.
 * **outlined_text**: many small filled, curved sub-paths sized like letters and
   more of them than real glyphs (text exported as outlines).
@@ -43,6 +44,7 @@ awkward wh wr sw tw dw kn kl ck nk gh ph sh th ch sc sk sp st sn sm sl qu
 """
 
 LETTER_MIN, LETTER_MAX = 2.0, 60.0  # pt: size of a sub-path that may be a letter
+SCAN_COVERAGE_WITH_TEXT = 0.9  # image share that makes a page with a few glyphs a scan
 
 
 def _fold(text: str) -> str:
@@ -142,7 +144,11 @@ def classify(page: Page) -> Triage:
     facts = (f"glyphs={s.visible_glyphs} invisible={s.invisible_glyphs} bad={s.bad_glyphs} "
              f"image_cov={s.image_coverage:.2f} letter_paths={s.letter_paths} "
              f"bigram={s.bigram:.2f}/{s.n_bigrams}")
-    if s.visible_glyphs < 10 and s.image_coverage >= 0.5:
+    # a few real glyphs over a large picture is a title slide, not a scan (M10: a
+    # section divider with "Annex" over an 84% photo was OCR'd), unless the picture
+    # covers practically the whole page
+    if s.image_coverage >= 0.5 and (s.visible_glyphs == 0 or (
+            s.visible_glyphs < 10 and s.image_coverage >= SCAN_COVERAGE_WITH_TEXT)):
         ocr = " with an invisible OCR text layer" if s.invisible_glyphs >= 10 else ""
         return Triage(kind="scanned", confidence=min(1.0, 0.5 + s.image_coverage / 2),
                       reason=f"no visible text, images cover {s.image_coverage:.0%}{ocr}; "

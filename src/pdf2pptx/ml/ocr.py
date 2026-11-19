@@ -566,7 +566,12 @@ def ocr_scanned(doc: Document, page: Page, pdf: Path, work_dir: Path) -> dict[st
     fonts = fit_fonts(kept)
     unify_sizes(kept, 72.0 / dpi)
     bullets = find_bullets(de_gray, kept)
-    glyphs = make_glyphs(doc, page, kept, fr, engine=engine)
+    # a line the page already has as real (visible) text is not added again; it is still
+    # cleaned out of the background below, as the real glyphs are drawn on top (M10: a
+    # born-digital title over a photo was emitted twice)
+    real = [g for g in page.glyphs if g.render_mode not in (3, 7) and not g.text.isspace()]
+    emit = [g for g in kept if not _has_real_text(g, real, fr)]
+    glyphs = make_glyphs(doc, page, emit, fr, engine=engine)
     page.glyphs.extend(glyphs)
     # the clean background: text pixels masked (in the original, skewed image) and filled
     t_inp = time.perf_counter()
@@ -581,7 +586,7 @@ def ocr_scanned(doc: Document, page: Page, pdf: Path, work_dir: Path) -> dict[st
     formulas = sum(1 for r in regions if r.label in FORMULA_LABELS)
     info = {
         "kind": "scanned", "engine": engine, "dpi": dpi, "skew": skew,
-        "lines": len(kept), "words": len(words),
+        "lines": len(emit), "words": len(words), "lines_already_text": len(kept) - len(emit),
         "low_conf_words": sum(1 for w in words if w.conf < MIN_WORD_CONF),
         "mean_conf": round(float(np.mean([w.conf for w in words])), 4) if words else None,
         "kept_in_picture": len(in_picture), "formula_regions": formulas,
@@ -596,8 +601,30 @@ def ocr_scanned(doc: Document, page: Page, pdf: Path, work_dir: Path) -> dict[st
     return info
 
 
+def _has_real_text(g: LineGeo, real: list[Glyph], fr: Frame) -> bool:
+    """Whether OCR line ``g`` covers glyphs of the page's own (visible) text layer."""
+    if not real:
+        return False
+    x0, y0 = fr.to_pt(g.line.box[0], g.line.box[1])
+    x1, y1 = fr.to_pt(g.line.box[2], g.line.box[3])
+    x0, x1 = min(x0, x1), max(x0, x1)
+    y0, y1 = min(y0, y1), max(y0, y1)
+    inside = sum(1 for p in real if x0 <= (p.bbox[0] + p.bbox[2]) / 2 <= x1
+                 and y0 <= (p.bbox[1] + p.bbox[3]) / 2 <= y1)
+    return inside >= max(1, len([c for c in g.line.text if not c.isspace()]) // 2)
+
+
+def _overlaps(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> bool:
+    return min(a[2], b[2]) - max(a[0], b[0]) > 0.5 and min(a[3], b[3]) - max(a[1], b[1]) > 0.5
+
+
 def _set_background(page: Page, work_dir: Path, rel: str, bg: np.ndarray) -> None:
-    """The cleaned render replaces the page pictures (it already contains them)."""
+    """The cleaned render replaces the page pictures (it already contains them).
+
+    The render also contains every shape. A shape drawn *under* a replaced picture was
+    hidden by it; kept on the slide it would now cover the cleaned background (M10: a
+    full-page white rectangle under a full-bleed photo hid the whole slide), so it is
+    dropped. Shapes above the pictures or beside them stay editable."""
     import hashlib
 
     data = (work_dir / rel).read_bytes()
@@ -606,7 +633,12 @@ def _set_background(page: Page, work_dir: Path, rel: str, bg: np.ndarray) -> Non
                  pixel_size=(int(bg.shape[1]), int(bg.shape[0])), is_background=True,
                  source="model:ocr+inpaint", alt_text="scanned page (text removed)",
                  notes=["ocr_background"])
-    keep = [e for e in page.elements if not isinstance(e, Image)]
+    images = [e for e in page.elements if isinstance(e, Image)]
+    hidden = {e.id for e in page.elements if isinstance(e, Shape)
+              and any(e.z < im.z and _overlaps(e.bbox, im.bbox) for im in images)}
+    keep = [e for e in page.elements if not isinstance(e, Image) and e.id not in hidden]
+    if hidden:
+        scan.notes.append(f"ocr_background:dropped_hidden:{len(hidden)}")
     page.elements = [scan, *keep]
 
 

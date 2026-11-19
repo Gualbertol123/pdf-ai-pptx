@@ -378,20 +378,26 @@ def _values(tok: str) -> set[float]:
     return out
 
 
+# typographic minus signs (U+2212, dashes) before a digit read as "-" (real decks set them)
+_MINUS_RE = re.compile(r"[−‒–—﹣－](?=\d)")
+
+
 def numbers(text: str) -> list[str]:
+    text = _MINUS_RE.sub("-", text)
     return [m.group(0) for m in NUM_RE.finditer(text) if any(c.isdigit() for c in m.group(0))]
 
 
 def number_index(text: str) -> set[float]:
+    """Magnitudes of every number in ``text``: "down 23bps" is grounded by "-23bps"."""
     vals: set[float] = set()
     for tok in numbers(text):
-        vals |= _values(tok)
+        vals |= {abs(v) for v in _values(tok)}
     return vals
 
 
 def missing_numbers(text: str, source: str | set[float]) -> list[str]:
     idx = number_index(source) if isinstance(source, str) else source
-    return [tok for tok in numbers(text) if not (_values(tok) & idx)]
+    return [tok for tok in numbers(text) if not ({abs(v) for v in _values(tok)} & idx)]
 
 
 # --------------------------------------------------------------------------- plan model
